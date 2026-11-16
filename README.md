@@ -1,41 +1,56 @@
 # AstroSlop
 
-AstroSlop is a planned Pebble watchapp for visual astronomy with an
-altitude-azimuth mount, such as a Dobsonian telescope. It will show where to
-point a telescope using a setting circle and an inclinometer.
+AstroSlop is a Pebble watchapp for visual astronomy with an altitude-azimuth
+mount, such as a Dobsonian telescope. It shows where to point a telescope using
+a setting circle and an inclinometer.
 
-**Status:** Design version 0.1 is available for review. The repository currently
-contains the Pebble SDK starter app; the astronomy features are not yet
-implemented. The images below are emulator mockups, not screenshots of a
-finished app.
+**Status:** Initial implementation; hardware validation remains outstanding.
+See [limitations](#limitations-and-open-issues) before using it.
 
-## Planned features
+## Features
 
-- Live azimuth and elevation, displayed prominently in degrees to at least
-  0.1° and refreshed every second by default. Azimuth is measured clockwise
-  from true north.
+- Live azimuth and elevation, displayed in degrees to 0.1° by default.
+  Azimuth is measured clockwise from true north. Display refresh and optional
+  0.01° precision are configurable.
 - On-watch catalogs for the Sun, Moon, planets and selected minor planets; the
-  100 brightest stars; all 110 Messier objects; and the 88 IAU constellations.
-  Additional catalogs can be added through catalog files and registration.
-- Phone GPS at startup and hourly, with manual location as an alternative.
-  Astronomy calculations run on the watch, without phone round-trips.
+  100 brightest stars; 110 Messier objects; and the centers of the 88 IAU
+  constellations. M102 is represented by NGC 5866.
+- Phone GPS at startup and hourly, with manual coordinates as an alternative
+  and a persisted last fix. Astronomy calculations run on the watch without
+  phone round-trips.
 - Configurable object name, local time, next rise or set time, magnitude and
   optional local weather temperature, subject to screen space.
-- High-contrast display with an invert option; configurable red backlight on
-  Pebble Time 2. Filters can skip objects below a chosen elevation or fainter
-  than a chosen magnitude.
-- Button navigation: Up/Down change objects, Select changes catalogs,
-  long-press Down refreshes location, and long-press Select toggles a timed
-  flashlight.
+- High-contrast display with an invert option, a configurable red backlight on
+  supported watches, and elevation and magnitude filters.
+- A timed flashlight, warning icons, a selection banner and on-watch credits.
 
-The design targets Pebble Time 2 (**emery**), Pebble 2 Duo (**flint**) and
-Pebble Round 2 (**gabbro**). Pebble Time, Time Round and Pebble 2 are planned
-on a best-effort basis; aplite is not supported by the design.
+The app targets Pebble Time 2 (**emery**), Pebble 2 Duo (**flint**) and
+Pebble Round 2 (**gabbro**), as well as Pebble Time (**basalt**), Time Round
+(**chalk**) and Pebble 2 (**diorite**). Aplite is not supported. Smaller and
+round displays may omit secondary fields.
+
+## Controls
+
+| Action | Control |
+|---|---|
+| Previous / next object | Up / Down |
+| Next catalog | Select |
+| Refresh GPS and weather subscription | Hold Down |
+| Toggle timed flashlight | Hold Select |
+| About and credits | Hold Up |
+
+Change settings from the gear icon next to AstroSlop in the Pebble mobile app.
+The settings page uses [Clay](https://github.com/pebble-dev/clay), the SDK's
+recommended configuration framework; changes apply when you tap **Save**. The
+elevation filter is enabled at 0° by default; disable it to browse objects below the horizon. On watches with
+a white backlight, the flashlight is disabled by default. The first visit to a
+catalog selects its first matching object; later visits restore the last
+selection even if it no longer passes the filters.
 
 ## Interface mockups
 
-The main screen emphasizes the pointing coordinates; a temporary banner
-identifies an object when the selection changes. Images use the same scale.
+These design renderings illustrate the main screen and temporary object banner.
+They use the same scale; live values and text vary with the selected object.
 
 | | Pebble Time 2 (emery) | Pebble Round 2 (gabbro) |
 |---|---|---|
@@ -46,23 +61,24 @@ More platform and state mockups are in the [design document](docs/DESIGN.md#911-
 
 ## Theory of operation
 
-The planned watchapp uses the watch clock and a location from the Pebble mobile
-app (or manual coordinates). For the selected object, it calculates an
+The watchapp uses the watch's system clock and a location from the Pebble
+mobile app (or manual coordinates). For the selected object, it calculates an
 apparent celestial position and converts it to local azimuth and elevation
 using sidereal time and the observer's latitude and longitude. Solar-system
 positions use planetary, lunar or orbital models; fixed objects use catalog
-coordinates corrected for effects such as precession. Elevation includes an
-atmospheric refraction correction by default, with optional local weather
-temperature. The display also computes the next rise or set event when enabled.
+coordinates corrected for proper motion, precession, nutation and aberration.
+Topocentric parallax is included. Elevation includes atmospheric refraction by
+default, using observer elevation and optionally a weather temperature. The
+display also computes the next rise or set event when enabled.
 
 The algorithms are based in part on Jean Meeus, *Astronomical Algorithms*,
 2nd edition. See the [astronomy design](docs/DESIGN.md#7-astronomy-algorithms)
 for models, assumptions and accuracy targets.
 
-**Solar safety:** Never look at the Sun through a telescope without a properly
-installed, purpose-made solar filter.
+**Solar safety:** Never look at the Sun through a telescope or finder without a
+properly installed, purpose-made solar filter.
 
-## Planned data sources
+## Data sources
 
 - [NASA/JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) and the
   [Small-Body Database](https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html):
@@ -77,23 +93,92 @@ installed, purpose-made solar filter.
 - The user's weather provider, via the Pebble mobile app's weather plugin,
   when local weather is enabled.
 
-Full source, attribution and licensing details are in the
+Source acknowledgements are in [CREDITS.md](CREDITS.md) and the
 [design document](docs/DESIGN.md#13-dependencies-data-sources-and-attribution).
 
-## Building the starter app
+## Building and testing
 
-Install the [Pebble SDK](https://developer.repebble.com/), then run:
+Install the [Pebble SDK](https://developer.repebble.com/sdk/) (4.44), Python 3,
+Node.js with npm, and a host C compiler and `make`. The checked-in catalog and
+ephemeris inputs are packed automatically. `pebble build` installs the Clay
+package from npm on first build; it does not download catalog data. From the
+repository root, build the app:
 
 ```sh
 pebble build
+```
+
+The package is written to `build/astroslop.pbw`.
+
+### Install on a watch
+
+Pair your watch with the Pebble mobile app and sign in to your Pebble account.
+On the **Devices** tab, open the watch's three-dot menu and enable
+**Dev Connection**. From the repository root, sign in with the same account
+and install the package:
+
+```sh
+pebble login  # needed once
+pebble install --cloudpebble build/astroslop.pbw
+```
+
+Allow AstroSlop access to your phone's location when prompted.
+
+### Run in an emulator
+
+```sh
 pebble install --emulator emery
 ```
 
-In a headless environment, add `--vnc` to emulator commands. The current
-`package.json` still contains the SDK's initial platform list; the final targets
-will be configured during implementation.
+Use `--vnc` for **all** emulator commands in a headless environment, for
+example:
+
+```sh
+pebble install --emulator emery --vnc
+pebble screenshot --emulator emery --vnc --scale 6 --no-open screenshot.png
+pebble emu-button --emulator emery --vnc click select
+```
+
+### Run the tests
+
+Run the host tests (Node.js is needed for the companion test):
+
+```sh
+make -C test/astro
+python3 -m unittest discover -s test/tools -v
+node test/pkjs/companion.test.js
+```
+
+## Adding a catalog
+
+Create a CSV under `catalogs/` using an existing file as a template. Supply
+`title`, `short_title`, `provider`, `source` and `license` header comments and
+the provider's columns; register the filename in `catalogs/catalogs.json`.
+Fixed-object coordinates are J2000 degrees. IDs, names, titles, short titles
+and source descriptions must fit the watch's 31-, 63-, 39-, 23- and 127-byte
+UTF-8 limits respectively. The build validates the file and regenerates the
+watch resource, About/settings credits and [CREDITS.md](CREDITS.md) from those
+headers. Edit catalog headers rather than the generated credits document.
+
+## Limitations and open issues
+
+- GPS fixes without altitude use sea level and show a warning. The weather
+  plugin's first saved location may differ from the observer's location;
+  readings expire at the provider's `validUntilMs`, or after three hours when
+  no expiry is supplied.
+- Minor-planet elements cover 2026–2036; accuracy degrades outside the table.
+  The results are intended for visual pointing, not precision navigation.
+  Reference-vector tests cover sampled dates and locations, not every possible
+  observing condition.
+- The flint build is close to its 64 KB RAM limit, and resources are about
+  121 KB—larger than the design estimates. Emulator filter searches can take
+  about a second. Physical-watch performance, battery life, backlight color,
+  and real Location-permission behavior still need verification.
+- English is the only supplied UI language. The SDK linker emits RWX-segment
+  warnings for the watch binaries.
 
 ## Design documentation
 
-Read [Design Document 0.1](docs/DESIGN.md) or its [PDF version](docs/DESIGN.pdf)
-for requirements, architecture, algorithms, mockups and verification plans.
+Read the [Design and As-Built Document 0.2](docs/DESIGN.md) or its
+[PDF version](docs/DESIGN.pdf) for requirements, architecture, algorithms,
+mockups and verification status.

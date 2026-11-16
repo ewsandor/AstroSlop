@@ -3,7 +3,11 @@
 #
 # Feel free to customize this to your needs.
 #
+import json
+import os
 import os.path
+import subprocess
+import sys
 
 top = '.'
 out = 'build'
@@ -13,6 +17,30 @@ def options(ctx):
     ctx.load('pebble_sdk')
 
 
+def generate_resources():
+    with open('catalogs/catalogs.json', encoding='utf-8') as registry_file:
+        catalog_files = json.load(registry_file)['catalogs']
+    generators = [
+        ('tools/build_catalogs.py',
+         ['resources/generated/catalogs.bin', 'resources/generated/catalog_credits.inc',
+          'resources/generated/catalog_credits.json', 'CREDITS.md'],
+         ['catalogs/catalogs.json'] + [os.path.join('catalogs', name) for name in catalog_files],
+         ['--about-header', 'resources/generated/catalog_credits.inc',
+          '--credits-json', 'resources/generated/catalog_credits.json',
+          '--credits-md', 'CREDITS.md']),
+        ('tools/build_ephemeris.py', ['resources/generated/ephemeris.bin'],
+         ['ephemeris/minor_planets.csv'] +
+         ['ephemeris/meeus/{}.csv'.format(name)
+          for name in ('moon_longitude', 'moon_latitude', 'pluto')] +
+         ['ephemeris/vsop87d/VSOP87D.{}.gz'.format(name)
+          for name in ('mer', 'ven', 'ear', 'mar', 'jup', 'sat', 'ura', 'nep')], []),
+    ]
+    for script, outputs, inputs, extra_args in generators:
+        newest = max(os.path.getmtime(path) for path in [script] + inputs)
+        if any(not os.path.exists(path) or os.path.getmtime(path) < newest for path in outputs):
+            subprocess.check_call([sys.executable, script, '--output', outputs[0]] + extra_args)
+
+
 def configure(ctx):
     """
     This method is used to configure your build. ctx.load(`pebble_sdk`) automatically configures
@@ -20,10 +48,12 @@ def configure(ctx):
     change after calling ctx.load('pebble_sdk') and make sure to set the correct environment first.
     Universal configuration: add your change prior to calling ctx.load('pebble_sdk').
     """
+    generate_resources()
     ctx.load('pebble_sdk')
 
 
 def build(ctx):
+    generate_resources()
     ctx.load('pebble_sdk')
 
     build_worker = os.path.exists('worker_src')

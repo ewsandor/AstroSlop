@@ -1,0 +1,94 @@
+# title: IAU Constellations
+# short_title: Constellations
+# provider: fixed
+# source: IAU boundaries, Davenhall and Leggett 1989 CDS VI/49; IAU names via Astropy
+# license: CDS distribution; Astropy BSD-3-Clause
+id,name,ra_deg,dec_deg,pm_ra_mas_yr,pm_dec_mas_yr,mag,type
+And,Andromeda,10.0929814,40.4843384,0.00,0.00,,constellation
+Ant,Antlia,151.9919253,-34.0164204,0.00,0.00,,constellation
+Aps,Apus,243.8876859,-76.0245769,0.00,0.00,,constellation
+Aqr,Aquarius,335.9928929,-10.4610888,0.00,0.00,,constellation
+Aql,Aquila,294.7221580,2.1079924,0.00,0.00,,constellation
+Ara,Ara,260.0504178,-54.2517250,0.00,0.00,,constellation
+Ari,Aries,39.8844356,20.0964923,0.00,0.00,,constellation
+Aur,Auriga,89.1152921,41.0921603,0.00,0.00,,constellation
+Boo,Bootes,218.9135499,29.3088540,0.00,0.00,,constellation
+Cae,Caelum,71.2977889,-38.0575929,0.00,0.00,,constellation
+Cam,Camelopardalis,85.3236937,70.7982289,0.00,0.00,,constellation
+Cnc,Cancer,130.2318419,19.2867957,0.00,0.00,,constellation
+CVn,Canes Venatici,197.3952999,40.3557491,0.00,0.00,,constellation
+CMa,Canis Major,102.4524339,-21.9449530,0.00,0.00,,constellation
+CMi,Canis Minor,114.4455597,5.9149586,0.00,0.00,,constellation
+Cap,Capricornus,315.3607041,-18.7494570,0.00,0.00,,constellation
+Car,Carina,131.6361577,-63.0600800,0.00,0.00,,constellation
+Cas,Cassiopeia,15.3372470,62.5602911,0.00,0.00,,constellation
+Cen,Centaurus,196.4833907,-46.0979547,0.00,0.00,,constellation
+Cep,Cepheus,334.8375968,72.1046518,0.00,0.00,,constellation
+Cet,Cetus,24.4106958,-8.9882485,0.00,0.00,,constellation
+Cha,Chamaleon,160.2866695,-80.1285901,0.00,0.00,,constellation
+Cir,Circinus,222.2578983,-63.2230301,0.00,0.00,,constellation
+Col,Columba,86.8262358,-35.6150547,0.00,0.00,,constellation
+Com,Coma Berenices,191.3055680,22.3710306,0.00,0.00,,constellation
+CrA,Corona Australis,279.7046018,-41.1986863,0.00,0.00,,constellation
+CrB,Corona Borealis,238.2663492,32.1776104,0.00,0.00,,constellation
+Crv,Corvus,186.3679423,-18.1415799,0.00,0.00,,constellation
+Crt,Crater,171.1074907,-15.6968120,0.00,0.00,,constellation
+Cru,Crux ,186.7226431,-60.0647492,0.00,0.00,,constellation
+Cyg,Cygnus,309.2650191,43.0922993,0.00,0.00,,constellation
+Del,Delphinus,310.1972672,12.1764997,0.00,0.00,,constellation
+Dor,Dorado,75.4356489,-61.3289781,0.00,0.00,,constellation
+Dra,Draco,254.3283548,68.1427212,0.00,0.00,,constellation
+Equ,Equuleus,318.0251691,7.4701005,0.00,0.00,,constellation
+Eri,Eridanus,57.0105704,-21.0180536,0.00,0.00,,constellation
+For,Fornax,41.5182065,-31.5227624,0.00,0.00,,constellation
+Gem,Gemini,107.2910541,23.4368394,0.00,0.00,,constellation
+Gru,Grus,337.8570053,-45.2418862,0.00,0.00,,constellation
+Her,Hercules,259.4656866,28.6007422,0.00,0.00,,constellation
+Hor,Horologium,49.5236303,-53.2980211,0.00,0.00,,constellation
+Hya,Hydra,156.5462200,-18.9587965,0.00,0.00,,constellation
+Hyi,Hydrus,35.6764359,-71.5838183,0.00,0.00,,constellation
+Ind,Indus,322.2283347,-58.4985510,0.00,0.00,,constellation
+Lac,Lacerta,337.4078597,45.1116191,0.00,0.00,,constellation
+Leo,Leo,160.5272558,15.0758046,0.00,0.00,,constellation
+LMi,Leo Minor,155.4210314,33.5118787,0.00,0.00,,constellation
+Lep,Lepus,83.6234415,-19.0796195,0.00,0.00,,constellation
+Lib,Libra,228.3733763,-15.2517574,0.00,0.00,,constellation
+Lup,Lupus,229.7161356,-42.4143694,0.00,0.00,,constellation
+Lyn,Lynx,121.3074552,46.7843586,0.00,0.00,,constellation
+Lyr,Lyra,282.6871384,36.6260303,0.00,0.00,,constellation
+Men,Mensa,82.2192853,-77.5148062,0.00,0.00,,constellation
+Mic,Microscopium,314.4713135,-36.0162098,0.00,0.00,,constellation
+Mon,Monoceros,105.2797090,-2.7022515,0.00,0.00,,constellation
+Mus,Musca,188.5678165,-70.0675306,0.00,0.00,,constellation
+Nor,Norma,241.1943056,-51.6189145,0.00,0.00,,constellation
+Oct,Octans,318.7696995,-84.5195897,0.00,0.00,,constellation
+Oph,Ophiucus,259.5614308,-5.2478535,0.00,0.00,,constellation
+Ori,Orion,83.9001507,5.1746683,0.00,0.00,,constellation
+Pav,Pavo,293.5477921,-65.6087462,0.00,0.00,,constellation
+Peg,Pegasus,340.4248456,19.4861286,0.00,0.00,,constellation
+Per,Perseus,53.1149274,44.4525988,0.00,0.00,,constellation
+Phe,Phoenix,11.7432112,-47.8331780,0.00,0.00,,constellation
+Pic,Pictor,83.6416943,-52.5050563,0.00,0.00,,constellation
+Psc,Pisces,9.5565096,10.9821314,0.00,0.00,,constellation
+PsA,Pisces Austrinus,334.2884483,-30.7131985,0.00,0.00,,constellation
+Pup,Puppis,114.9106331,-33.2546683,0.00,0.00,,constellation
+Pyx,Pyxis,133.6408790,-28.4525064,0.00,0.00,,constellation
+Ret,Reticulum,58.3724464,-60.8155574,0.00,0.00,,constellation
+Sge,Sagitta,295.6567129,18.7305350,0.00,0.00,,constellation
+Sgr,Sagittarius,287.5466759,-27.5145851,0.00,0.00,,constellation
+Sco,Scorpius,251.3578335,-32.1592805,0.00,0.00,,constellation
+Scl,Sculptor,6.9567505,-32.2286400,0.00,0.00,,constellation
+Sct,Scutum,280.0961187,-9.8621408,0.00,0.00,,constellation
+Ser,Serpens,235.4291909,9.9056451,0.00,0.00,,constellation
+Sex,Sextans,154.0883533,-2.6131079,0.00,0.00,,constellation
+Tau,Taurus,66.1706877,17.0962780,0.00,0.00,,constellation
+Tel,Telescopium,289.9249177,-51.2236615,0.00,0.00,,constellation
+Tri,Triangulum,32.0531884,32.1575925,0.00,0.00,,constellation
+TrA,Triangulum Australe,240.9554499,-65.8480754,0.00,0.00,,constellation
+Tuc,Tucana,357.6367617,-64.6074192,0.00,0.00,,constellation
+UMa,Ursa Major,165.5673350,54.3881160,0.00,0.00,,constellation
+UMi,Ursa Minor,225.6517995,76.7439159,0.00,0.00,,constellation
+Vel,Vela,144.1637937,-48.0665214,0.00,0.00,,constellation
+Vir,Virgo,199.3259726,-2.6785346,0.00,0.00,,constellation
+Vol,Volans,117.0670186,-69.6735504,0.00,0.00,,constellation
+Vul,Vulpecula,304.2669089,24.8643258,0.00,0.00,,constellation

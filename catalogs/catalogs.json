@@ -1,0 +1,8 @@
+{
+  "catalogs": [
+    "sol_system.csv",
+    "brightest_stars.csv",
+    "messier.csv",
+    "constellations.csv"
+  ]
+}

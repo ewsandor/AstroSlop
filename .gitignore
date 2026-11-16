@@ -1,2 +1,16 @@
+# Pebble build output
 /build/
 /.lock-waf_*
+
+# Pebble packages (installed from package.json)
+/node_modules/
+
+# Generated watch resources
+/resources/generated/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Default local screenshot
+/screenshot.png

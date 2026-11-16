@@ -1,11 +1,16 @@
-# AstroSlop — Design Document
+# AstroSlop — Design and As-Built Document
 
 | | |
 |---|---|
-| **Status** | Initial Version |
-| **Version** | 0.1 |
+| **Status** | Implemented baseline; hardware field validation remains outstanding |
+| **Version** | 0.2 |
 | **Author** | Sandor Laboratories |
-| **License** | Code: MIT. Bundled data: per source (§13). |
+| **License** | Application code: MIT; source acknowledgements: §13 |
+
+Version 0.1 was the reviewed implementation plan. Version 0.2 retains its requirements and
+design rationale, but updates architecture, settings, resource formats, measurements and
+verification to match the implemented 0.1.0 application. Differences and remaining limitations are
+identified explicitly; this is an as-built record, not a change to the original product goals.
 
 ---
 
@@ -24,7 +29,7 @@
 11. [Localization](#11-localization)
 12. [Performance, Memory and Power Budgets](#12-performance-memory-and-power-budgets)
 13. [Dependencies, Data Sources and Attribution](#13-dependencies-data-sources-and-attribution)
-14. [Verification Strategy](#14-verification-strategy)
+14. [Verification Status](#14-verification-status)
 15. [Future Enhancements and Extension Points](#15-future-enhancements-and-extension-points)
 16. [References](#16-references)
 
@@ -51,7 +56,7 @@ The app does one thing: it tells the user where to point. Everything else is sec
 | ΔT | TT − UT (≈ 69 s in 2026). |
 | LST/GAST | Local Sidereal Time / Greenwich Apparent Sidereal Time. |
 | PKJS | PebbleKit JS: the app's JavaScript component, which runs inside the Pebble mobile app. |
-| Settings page | The app's configuration page in the Pebble mobile app: a bundled HTML file declared as `configPage` in `package.json`. |
+| Settings page | Clay-generated configuration opened by PebbleKit JS through the app configuration event; settings are submitted with Save. |
 | Meeus | Jean Meeus, *Astronomical Algorithms*, 2nd ed. (1998). Cited as `[Meeus Ch. N]`. |
 | Flashlight | The backlight held on for a fixed time, toggled by long-pressing Select (UX-11). |
 
@@ -59,8 +64,9 @@ The app does one thing: it tells the user where to point. Everything else is sec
 
 ## 2. Requirements
 
-Requirement status indicates design coverage, not implementation progress: ✅ addressed,
-⚠️ limitation noted, 🔮 future.
+Requirement status indicates current implementation: ✅ implemented, ⚠️ implemented with a
+limitation or partial deviation, 🔮 future. The tables record the current state; the approved
+design intent is retained where it differs.
 
 ### 2.1 Platform
 
@@ -93,7 +99,7 @@ Requirement status indicates design coverage, not implementation progress: ✅ a
 | CAT-3 | **Brightest Stars**: the 100 brightest stars, brightest first | ✅ | §8.5 |
 | CAT-4 | **Messier**: the 110 objects, in order M1…M110 | ✅ | §8.5 |
 | CAT-5 | **IAU Constellations**: the centers of all 88 | ✅ | §8.5 |
-| CAT-6 | Catalogs stored on the watch if they fit | ✅ ~15 KB | §8.3 |
+| CAT-6 | Catalogs stored on the watch if they fit | ✅ packed on watch; 10,073-byte catalog pack | §8.3 |
 | CAT-7 | Extendable: a catalog file plus a registration step | ✅ CSV + one line in `catalogs.json` | §8.2 |
 | CAT-8 | Future: imported files, favorites, observation plans, dynamic catalogs | 🔮 extension points defined | §15 |
 
@@ -136,8 +142,8 @@ Requirement status indicates design coverage, not implementation progress: ✅ a
 | UX-6 | Down = next object, Up = previous object, Select = next catalog | ✅ | §9.9 |
 | UX-7 | On a change of object or catalog, briefly show the catalog title and the selected object's ID and name in large text (can be turned off) | ✅ | §9.3 |
 | UX-8 | Filters set on the phone: minimum elevation and faintest magnitude | ✅ | §8.6 |
-| UX-9 | Configure the app through the Pebble mobile app's bundled `configPage` (not legacy Clay), with an "Advanced" section | ✅ | §10.1 |
-| UX-10 | en_US by default; SDK localization facilities used from the start | ✅ | §11 |
+| UX-9 | Configure the app in the Pebble mobile app, with an "Advanced" section | ⚠️ implemented with Clay and an explicit Save action, not the proposed bundled `configPage` | §3.5, §10.1 |
+| UX-10 | en_US by default; use a localization mechanism | ⚠️ English string lookup exists; SDK locale-framework integration and additional locales are not implemented | §11 |
 | UX-11 | Long-press Select toggles a configurable timed flashlight (1, 2, 5 or 10 min; default 5 min). Enabled by default on emery, disabled elsewhere. | ✅ white light on non-emery models | §6.8, §9.9 |
 | UX-12 | Provide an on-watch About and Credits screen, opened with long-press Up | ✅ | §9.10 |
 
@@ -146,13 +152,13 @@ Requirement status indicates design coverage, not implementation progress: ✅ a
 | ID | Requirement | How it is addressed |
 |---|---|---|
 | NFR-1 | Stable | Host unit tests for the astronomy core; bounded resource reads; no dynamic allocation in hot paths; versioned persisted structs |
-| NFR-2 | Maintainable, extendable and modular | Layered modules with one-way dependencies, catalog providers and data-driven catalogs |
-| NFR-3 | Human-readable code | Descriptive names, SDK `prv_`/`s_` conventions and Doxygen headers |
+| NFR-2 | Maintainable, extendable and modular | Separate UI, services, catalog, ephemeris and portable astronomy modules; orchestration remains in `src/c/astroslop.c` |
+| NFR-3 | Human-readable code | Descriptive names and SDK `prv_`/`s_` conventions; not all proposed Doxygen headers were added |
 | NFR-4 | Well documented | This document, header documentation, README and CREDITS |
-| NFR-5 | Minimal | No background worker, timeline, AppGlance or JavaScript libraries |
+| NFR-5 | Minimal | No background worker, timeline or AppGlance; Clay is used for the configuration UI |
 | NFR-6 | Use standard Pebble infrastructure | AppMessage, PebbleKit JS geolocation, persistent storage and Light API |
 | NFR-7 | Dependencies listed | §13 |
-| NFR-8 | Open source | MIT-licensed code; openly published data with attribution |
+| NFR-8 | Open source | MIT-licensed application code with source acknowledgements in the app and repository |
 
 ---
 
@@ -177,7 +183,8 @@ probe builds.
   flint, emery and gabbro is not used. Forcing FPU flags would depend on undocumented firmware
   behavior, and these FPUs are single-precision only.
 * `libm` is linked by default. Double-precision `sin`, `cos`, `tan`, `asin`, `acos`, `atan2`,
-  `fmod`, `sqrt` and `floor`, including the soft-float routines, add **about 14 KB** of code.
+  `fmod`, `sqrt` and `floor`, including the soft-float routines, were estimated at **about 14 KB**
+  of code. The implemented app's complete measured footprint is substantially larger; see §12.2.
 * The SDK trig lookups were measured on the emulator against double-precision `libm`:
 
   | Function | Max error |
@@ -193,9 +200,9 @@ probe builds.
 
 ### 3.2 ⚠️ Aplite not supported (PLT-3)
 
-Aplite has 24 KB for code and heap. `libm` with soft-float (~14 KB), the astronomy core (~12 KB)
-and the UI do not fit, so aplite is not in `targetPlatforms`. Basalt, chalk and diorite have the
-same 64 KB as flint and are supported without extra constraints.
+Aplite has 24 KB for code and heap and is not in `targetPlatforms`. Basalt, chalk and diorite are
+supported, but their measured remaining heap is limited; see §12.2. Their inclusion does not
+change the required emery, flint or gabbro targets.
 
 ### 3.3 ⚠️ Backlight (UX-4, UX-5, UX-11)
 
@@ -215,7 +222,7 @@ same 64 KB as flint and are supported without extra constraints.
 * The time source is the **watch clock** (`time()`, UTC), which the Pebble mobile app keeps synced
   with the phone.
 * A typical clock error of ≤ 1 s is ≤ 0.004° of sky rotation (§7.9).
-* A clock earlier than 2025-01-01 is treated as unset: Az/El shows `---.-°` and the Alarm clock icon
+* A clock earlier than 2000-01-01 is treated as unset: Az/El shows `---.-°` and the Alarm clock icon
   is displayed.
 
 ### 3.5 PebbleKit JS, permissions and settings page (LOC-1, LOC-2, LOC-4, LOC-5, UX-9)
@@ -241,42 +248,23 @@ same 64 KB as flint and are supported without extra constraints.
     `Pebble.permissions.query()` distinguishes "prompt" from "denied", and only "denied" is shown
     as "Location denied" on the watch.
   * Emulator testing: `pebble emu-permission Location --deny/--grant/--reset`.
-  * **Weather permission.** The SDK protects the `weather/location` source, used by the optional
-    "Use local weather" setting (status-bar temperature and refraction, §7.7, §9.2), with the
-    `Location` permission. One permission
-    entry has a single `required` flag, so the weather option has no separate entry. Instead,
-    **turning the option on starts a permission check and request** (§6.6):
-    1. PKJS calls `Pebble.permissions.query("Location")`.
-    2. If the result is `"granted"`, PKJS subscribes to the weather source.
-    3. If it is `"prompt"`, PKJS subscribes anyway, because using the permission is what makes the
-       Pebble mobile app request it. While the settings page is open, the request appears in the
-       page's title bar, and the page shows "Allow Location in the Pebble app to use local
-       weather". Each `PERMISSION_DENIED` result is treated as temporary, and the subscription is
-       retried every time the settings page opens and at every location request (§6.4).
-    4. If it is `"denied"`, the option is switched back off and the page shows "Location permission
-       is off for AstroSlop. Turn it on in the Pebble app to use local weather."
-
-    In every case except a successful read, no temperature is shown and refraction uses 10 °C.
-* **Manual location (LOC-4, LOC-5).** A map picker would need map tiles and network access. The
-  settings page provides editable coordinates (LOC-4).
-* **Settings page (UX-9).** `package.json` declares a bundled HTML page,
-  `"configPage": "src/pkjs/config.html"`. The Pebble mobile app shows it in place of the legacy
-  `showConfiguration` / `webviewclosed` flow, and the page exchanges messages with PKJS while it is
-  open:
-
-  ```js
-  // config.html (settings page)
-  Pebble.addEventListener("ready", async () => {
-    const state = await Pebble.sendMessage("pkjs", { op: "get-state" });
-  });
-  // index.js (PKJS)
-  Pebble.addEventListener("configmessage", e => e.respond({ settings, lastFix, platform }));
-  ```
-
-  * The page has no network access, matching the app, so it is a single self-contained HTML file
-    with inline CSS and JS. External links use `Pebble.openUrl()`.
-  * ⚠️ The mechanism is described in the SDK's *Plugins (Preview)* guide and needs **Pebble mobile
-    app 1.18 or later**. It is supported in the emulator (`pebble emu-app-config`).
+  * **Weather permission and plugin.** The optional "Use local weather" setting subscribes to
+    `weather/location` through `Pebble.subscribeToSource` (§7.7). This is separate from standard
+    phone geolocation and depends on the Plugins preview being available and enabled. If the
+    subscription API or permission is unavailable, no temperature is shown and refraction uses
+    10 °C. Invalid or expired readings are also discarded. Standard
+    `navigator.geolocation.getCurrentPosition` remains the location mechanism; weather-plugin
+    availability does not determine whether that API exists.
+  * **Manual location (LOC-4, LOC-5).** No map picker is implemented. Editable latitude, longitude
+    and elevation are stored in PKJS `localStorage`; a button can copy the last saved phone GPS fix
+    into the fields.
+  * **Settings page (UX-9).** The implementation uses `@rebble/clay` 1.1.0, following the later
+    decision to use Clay. `package.json` declares the configurable capability, not a `configPage`.
+    `src/pkjs/index.js` handles `showConfiguration`, builds the layout from `src/pkjs/config.js`,
+    opens it with `Pebble.openURL(clay.generateUrl())`, then reads the response on `webviewclosed`.
+    The page has a **Save** action. PKJS validates and stores values in `localStorage`, sends
+    watch-relevant settings over AppMessage, and responds to manual-location changes. Help text
+    explains non-obvious controls, including refraction.
 
 ### 3.6 Fonts (UX-3)
 
@@ -306,16 +294,16 @@ Requirements are in §2; this section records implementation choices and rationa
 
 | ID | Implementation choice | Alternative | Rationale |
 |---|---|---|---|
-| D-1 | Double-precision `libm` (soft-float) | SDK lookups; fixed point; FPU | SDK lookup errors exceed the 0.1° display budget; about 14 KB is affordable, and caching keeps CPU use low (§3.1, §12). |
-| D-2 | Truncated VSOP87D for Sun and planets [Meeus Ch. 32] | JPL approximate elements | JPL elements omit Pluto and have up to 0.17° error; truncated VSOP87D costs about 40 KB (§7.5). |
+| D-1 | Double-precision `libm` (soft-float) | SDK lookups; fixed point; FPU | SDK lookup errors exceed the 0.1° display budget; complete-app memory use is measured in §12.2. |
+| D-2 | Truncated VSOP87D for Sun and planets [Meeus Ch. 32] | JPL approximate elements | JPL elements omit Pluto and have up to 0.17° error; the measured complete ephemeris resource is about 109 KB (§7.5). |
 | D-3 | Meeus Ch. 47 abridged ELP-2000/82 for the Moon, with topocentric parallax | Lower-precision lunar model | About 10″ accuracy; parallax is essential for pointing (§7.5). |
 | D-4 | Meeus Ch. 37 for Pluto | Keplerian elements | About 1″ accuracy within 1885–2099 (§7.5). |
 | D-5 | Two-body Kepler propagation from JPL Horizons elements for minor planets (AST-7) | One element set per release; phone-supplied positions | A single set drifts by about 0.1° within months; a table supports on-watch computation (§7.5). |
 | D-6 | Sæmundsson refraction model (AST-8) | No refraction; standard conditions | Corrects apparent altitude; pressure derives from elevation, with optional weather temperature (§7.7). |
-| D-7 | Compile CSV catalogs into one packed binary resource | C arrays; on-watch JSON parsing | Keeps catalog data in resources and avoids loading the pack into RAM (§8.3). |
-| D-8 | Catalog provider interface | One hard-coded catalog type | Fixed-star, solar-system and future catalogs share an interface (§5.3, §8.4). |
+| D-7 | Compile CSV catalogs into one packed binary resource | C arrays; on-watch JSON parsing | Keeps catalog data in resources and reads records on demand (§8.3). |
+| D-8 | Two catalog provider kinds, dispatched by `catalog.c` | A generic function-table interface | Fixed and solar-system records share the catalog API; new kinds currently require C changes (§5.3, §8.4). |
 | D-9 | Watch-driven location refresh (LOC-2) | PKJS `setInterval` | PKJS timers may be suspended on iOS (§3.5). |
-| D-10 | PebbleOS and Rebble status icons from `pebble-dev/iconography` (Apache-2.0) | Custom icons | Uses established Pebble ecosystem icons (LOC-3, §9.7). |
+| D-10 | PebbleOS and Rebble status icons from Pebble iconography | Custom icons | Uses established Pebble ecosystem icons (LOC-3, §9.7). |
 | D-11 | LECO with a per-platform font ladder (UX-3) | Other system fonts; bundled font | Monospaced digits stay aligned without adding font resources (§3.6, §9.5). |
 
 ---
@@ -326,135 +314,128 @@ Requirements are in §2; this section records implementation choices and rationa
 
 ```mermaid
 flowchart LR
+    subgraph Sources["Committed build inputs"]
+        CATCSV[("catalogs/*.csv<br/>catalogs.json")]
+        EPHCSV[("VSOP87D, Meeus<br/>and Horizons data")]
+        TOOLS["tools/build_catalogs.py<br/>tools/build_ephemeris.py"]
+        CATCSV --> TOOLS
+        EPHCSV --> TOOLS
+    end
     subgraph Phone["Phone - Pebble mobile app"]
-        GPS[("Phone GPS")]
+        GPS[("Phone geolocation")]
         PKJS["PebbleKit JS<br/>src/pkjs/index.js"]
-        CFG["Settings page<br/>src/pkjs/config.html"]
+        CLAY["Clay layout<br/>src/pkjs/config.js"]
         LS[("localStorage")]
+        WEATHER[("Optional weather plugin")]
         GPS --> PKJS
-        CFG ---|"live messages"| PKJS
+        CLAY -->|"Save response"| PKJS
         PKJS --- LS
+        WEATHER --> PKJS
     end
     subgraph Watch["Pebble watch - C app"]
-        APP["AstroSlop watchapp"]
-        RES[("App resources:<br/>catalog pack, ephemeris, icons")]
-        PST[("Persistent storage:<br/>settings, last location, selection")]
+        APP["src/c/astroslop.c<br/>application coordinator"]
+        UI["UI: main_window.c"]
+        SERVICES["Services: settings, location, l10n"]
+        CATALOG["catalog.c<br/>on-demand resource reads"]
+        ASTRO["Portable C astronomy<br/>astro.c, events.c, ephemeris.c"]
+        RES[("Catalog and ephemeris<br/>resource packs; icons")]
+        PST[("Persistent settings,<br/>location and selections")]
         RTC[("Watch clock, UTC")]
-        LED[("Backlight")]
-        APP --- RES
+        APP --> UI
+        APP --> SERVICES
+        APP --> CATALOG
+        APP --> ASTRO
+        CATALOG --> RES
+        ASTRO --> RES
         APP --- PST
         RTC --> APP
-        APP --> LED
     end
-    PKJS ---|"AppMessage over Bluetooth"| APP
-    BUILD["Build-time tools<br/>tools/build_catalogs.py"] -->|"generates"| RES
-    DATA[("Public data sources<br/>NASA JPL, NASA HEASARC, CDS, IAU")] -.->|"curated CSV, committed to repo"| BUILD
+    TOOLS -->|"generated packs"| RES
+    PKJS <-->|"AppMessage over Bluetooth"| APP
+    DATA[("Public source data")] -.->|"curated inputs committed to repository"| EPHCSV
 ```
 
 ### 5.2 Watch module architecture (layered)
 
-Each layer may use only the layers **below** it. The `astro` library at the bottom depends on
-nothing except the C standard library and `<math.h>`. §5.3 describes each module.
+The implementation has distinct UI, service, catalog and astronomy modules, but the original
+separate application-controller, layout, banner-layer, resource-reader and provider modules were
+not created. `src/c/astroslop.c` coordinates app state, navigation, timers, calculations and service
+callbacks. The astronomy files are portable C and do not include `pebble.h`.
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│ APPLICATION          main.c · app_controller                             │
-├──────────────────────────────────────────────────────────────────────────┤
-│ PRESENTATION         main_window · banner_layer · about_window           │
-│ (Pebble UI)          layout · format · icons · theme                     │
-├──────────────────────────────────────────────────────────────────────────┤
-│ SERVICES             settings · location · backlight · messaging · l10n  │
-│ (Pebble APIs)                                                            │
-├──────────────────────────────────────────────────────────────────────────┤
-│ DOMAIN               catalog_registry · fixed_catalog                    │
-│                      solar_system_catalog · catalog_filter               │
-│                      ephemeris · resource_reader                         │
-├──────────────────────────────────────────────────────────────────────────┤
-│ astro/               time · sidereal · coords · precession · nutation    │
-│ (portable C99,       aberration · refraction · vsop87 · sun · moon       │
-│  no pebble.h)        pluto · kepler · magnitude · riseset                │
-└──────────────────────────────────────────────────────────────────────────┘
-        dependencies point downward only (▼)
+┌───────────────────────────────────────────────────────────────────┐
+│ APPLICATION COORDINATION   src/c/astroslop.c                       │
+│ state · navigation · tick/event/location callbacks · timers         │
+├───────────────────────────────────────────────────────────────────┤
+│ UI                         src/c/ui/main_window.c                   │
+│ custom canvas · layouts · banners · About/credits                   │
+├───────────────────────────────────────────────────────────────────┤
+│ SERVICES                   src/c/services/                          │
+│ settings · location · English strings                              │
+├───────────────────────────────────────────────────────────────────┤
+│ CATALOG                    src/c/catalog/catalog.c                  │
+│ catalog pack decoding · fixed/solar-system record dispatch          │
+├───────────────────────────────────────────────────────────────────┤
+│ ASTRONOMY                  src/c/astro/                             │
+│ coordinates · ephemeris · events · refraction · rise/set             │
+│ portable C; no Pebble headers                                        │
+└───────────────────────────────────────────────────────────────────┘
+                      │ resource reads
+                      ▼
+             catalogs.bin / ephemeris.bin
 ```
 
-Key dependencies across layers:
+The watch coordinator depends directly on the modules it orchestrates:
 
 | From | Uses |
 |---|---|
-| `app_controller` | every UI window, `settings`, `location`, `backlight`, `catalog_registry`, `catalog_filter`, `ephemeris` |
-| `main_window`, `banner_layer` | `layout`, `format`, `icons`, `theme`, `l10n` |
-| `settings`, `location` | `messaging` (AppMessage dispatch) |
-| `catalog_registry` | `fixed_catalog`, `solar_system_catalog` → `resource_reader` |
-| `fixed_catalog`, `solar_system_catalog`, `ephemeris` | `astro/*` |
-| `catalog_filter` | `ephemeris` (cached elevation) |
+| `src/c/astroslop.c` | `main_window`, settings, location, catalog API, astronomy API, Pebble timer/messaging/backlight APIs |
+| `ui/main_window.c` | screen-state struct, localization strings, Pebble graphics/layer/window APIs |
+| `catalog/catalog.c` | catalog pack resource reader and astronomy ephemeris functions |
+| `astro/ephemeris.c` | bounded callback-based reads from the ephemeris resource |
 
 ### 5.3 Module responsibilities
 
 | Module | Responsibility | Key API (sketch) |
 |---|---|---|
-| `main.c` | Entry point. Runs init in order, then the event loop, then teardown. | `main()` |
-| `app/app_controller` | Owns the app state (selected catalog and object, mode). Handles ticks and input actions, and coordinates ephemeris, UI and services. | `controller_init()`, `controller_on_tick()`, `controller_on_action(Action)` |
-| `app/app_state.h` | Plain data types for the observable state the UI renders | `AppState`, `PointingSolution` |
-| `ui/main_window` | Main Az/El screen. Builds layers from `layout` metrics and renders `AppState`. Its click config provider maps button gestures to controller actions (§9.9). | `main_window_push()`, `main_window_update(const AppState*)` |
-| `ui/banner_layer` | Temporary full-screen "object/catalog" card (UX-7) | `banner_show(...)`, `banner_hide()` |
-| `ui/about_window` | Scrollable About and Credits (data attributions) | `about_window_push()` |
-| `ui/layout` | Per-platform rects, font ladders and visible fields. Isolates all `PBL_IF_ROUND_ELSE` and size logic. | `layout_get(const GRect*)` |
-| `ui/format` | Fixed-point formatting of angles, magnitudes and times (no `%f`) | `format_angle(char*, size_t, int32_t centideg, ...)` |
-| `ui/icons` | Loads and draws status icons by priority, including the flashlight indicator | `icons_draw_status(GContext*, StatusFlags)` |
-| `ui/theme` | Color scheme (normal or inverted) | `theme_apply(const Settings*)` |
-| `services/backlight` | Applies the backlight tint (emery). Owns the **flashlight** on/off state and its auto-off `AppTimer`. Turns the light off at deinit. | `backlight_apply(const Settings*)`, `backlight_flashlight_toggle()`, `backlight_flashlight_is_on()` |
-| `services/settings` | Settings struct: defaults, load/save (versioned), applying `CFG_*` messages from the settings page | `settings_get()`, `settings_handle_message()` |
-| `services/location` | Observer location state machine, refresh timer and retries, persistence of the last fix | `location_get(Observer*)`, `location_request_refresh(bool force)` |
-| `services/messaging` | Opens AppMessage and routes inbox tuples to settings or location | `messaging_init()` |
-| `services/l10n` | String-table lookup by ID for the active locale (§11) | `_(STR_ID)` |
-| `catalog/catalog.h` | **Provider interface** (§8.4) | `CatalogProvider` |
-| `catalog/catalog_registry` | Reads the pack directory and exposes the ordered list of catalogs | `registry_count()`, `registry_get(i)` |
-| `catalog/fixed_catalog` | Provider for fixed J2000 objects (stars, Messier, constellations) | — |
-| `catalog/solar_system_catalog` | Provider for computed bodies (Sun, Moon, VSOP87 planets, Pluto, Kepler bodies) | — |
-| `catalog/catalog_filter` | Applies the min-elevation and min-brightness filters while cycling | `filter_find_next(cat, from, dir, ...)` |
-| `catalog/resource_reader` | Bounded reads from resources (the pack is never fully loaded into RAM) | `rr_read(handle, off, buf, n)` |
-| `ephem/ephemeris` | Two-rate pipeline: caches apparent RA/Dec, computes Az/El every tick, schedules rise/set | `ephem_get_pointing(obj, now, observer, out)` |
-| `astro/*` | Reusable astronomy library (§7) | e.g. `astro_equ_to_hor()` |
+| `src/c/astroslop.c` | `main()` and app coordinator: loads settings/resources, retains selection and calculation state, handles button/tick/AppMessage/connection events, filters, banners, flashlight and rise/set scheduling | `main()`, internal init/deinit and event handlers |
+| `src/c/ui/main_window.c` | Draws the main screen and temporary banners in a custom canvas; also creates the scrollable About window and icons | `ui_init()`, `ui_update()`, `ui_show_about()` |
+| `src/c/services/settings.c` | Settings defaults, validation, persistence and updates from AppMessage | `settings_load()`, `settings_apply()` |
+| `src/c/services/location.c` | Persisted fix, request lifecycle, timeout/retry/hourly timers, connection handling and warning state | `location_init()`, `location_request()`, `location_observer()` |
+| `src/c/services/l10n.c` | Small English string table and generated catalog-credit insertion | `l10n(StringId)` |
+| `src/c/catalog/catalog.c` | Reads catalog directory/records on demand, decodes fixed/body entries, dispatches to fixed-object or solar-system calculations | `catalog_init()`, `catalog_open()`, `catalog_object()`, `catalog_apparent()` |
+| `src/c/astro/astro.c` | Julian dates, ΔT, sidereal time, fixed-object apparent place, horizontal coordinates, parallax and refraction | `astro_*()` |
+| `src/c/astro/ephemeris.c` | VSOP87D, Moon, Pluto and minor-body calculations from a callback-read binary resource | `astro_ephemeris_init()`, `astro_ephemeris_position()` |
+| `src/c/astro/events.c` | Rise/set calculation and moving-object search/interpolation | `astro_next_event()` |
 
-### 5.4 Source tree (proposed)
+### 5.4 Source tree (implemented)
 
 ```
 astroslop/
-├── docs/DESIGN.md                    ← this document
-├── README.md, LICENSE (MIT), CREDITS.md (all data/asset attributions)
-├── REUSE.toml, LICENSES/             ← per-file license mapping and license texts (REUSE)
-├── package.json                      ← targetPlatforms (no aplite), usesPermissions, configPage, messageKeys, resources
-├── wscript                           ← + pre-build step calling tools/build_catalogs.py
-├── catalogs/                         ← human-editable catalog sources (CSV + headers)
-│   ├── catalogs.json                 ← REGISTRATION: ordered list of catalogs
-│   ├── sol_system.csv
-│   ├── brightest_stars.csv
-│   ├── messier.csv
-│   └── constellations.csv
-├── ephemeris/                        ← truncated VSOP87D + Pluto/Moon term tables (generated, committed)
-├── tools/
-│   ├── build_catalogs.py             ← CSV → resources/catalogs.bin (stdlib only)
-│   ├── build_ephemeris.py            ← VSOP87D full files → truncated resources/ephemeris.bin
-│   └── fetch/                        ← optional scripts that regenerate CSVs from upstream sources
-├── resources/
-│   ├── catalogs.bin                  ← generated
-│   ├── ephemeris.bin                 ← generated
-│   └── icons/                        ← PebbleOS/Rebble icons (PNG, 25 and 18 px; Apache-2.0)
+├── docs/DESIGN.md, docs/DESIGN.pdf
+├── README.md, CREDITS.md, LICENSE, LICENSES/
+├── package.json, package-lock.json, wscript
+├── catalogs/                         ← CSV data and catalogs.json registration order
+├── ephemeris/
+│   ├── vsop87d/                       ← committed compressed VSOP87D inputs
+│   ├── meeus/                         ← committed Moon and Pluto term CSVs
+│   └── minor_planets.csv              ← committed JPL Horizons elements
+├── tools/                             ← catalog/ephemeris builders and source fetchers
+├── resources/generated/               ← generated packs and catalog credit files
+├── resources/icons/                   ← platform-size status/flashlight icons
 ├── src/c/
-│   ├── main.c
-│   ├── app/      app_controller.[ch], app_state.h
-│   ├── ui/       main_window, banner_layer, about_window, layout, format, icons, theme
-│   ├── services/ settings, location, messaging, backlight, l10n (+ l10n_en_US.c)
-│   ├── catalog/  catalog.h, catalog_registry, fixed_catalog, solar_system_catalog,
-│   │             catalog_filter, resource_reader, catalog_format.h (binary layout, shared w/ tool)
-│   ├── ephem/    ephemeris.[ch]
-│   └── astro/    astro_*.{c,h}           ← portable library, no pebble.h
+│   ├── astroslop.c                     ← main entry point and application coordinator
+│   ├── ui/main_window.[ch]
+│   ├── services/{location,settings,l10n}.[ch]
+│   ├── catalog/catalog.[ch]
+│   └── astro/{astro,events,ephemeris}.[ch]
 ├── src/pkjs/
-│   ├── index.js                      ← location provider, watch messages, `configmessage` handler
-│   └── config.html                   ← bundled settings page (`configPage`), self-contained HTML/CSS/JS
+│   ├── index.js                        ← location/weather, Clay lifecycle and AppMessage
+│   └── config.js                       ← Clay settings layout and help text
 └── test/
-    ├── astro/                        ← host unit tests (gcc, Makefile) for src/c/astro
-    └── tools/                        ← python unittest for build_catalogs.py
+    ├── astro/                          ← host C tests, including JPL Horizons vectors
+    ├── tools/                          ← Python builder/fetcher tests
+    └── pkjs/                            ← companion JavaScript tests
 ```
 
 ### 5.5 Coding conventions
@@ -479,35 +460,35 @@ astroslop/
 sequenceDiagram
     autonumber
     participant OS as PebbleOS
-    participant M as main.c
+    participant M as src/c/astroslop.c
     participant S as settings
     participant BL as backlight
     participant L as location
-    participant R as catalog_registry
-    participant C as app_controller
+    participant R as catalog.c
     participant UI as main_window
     participant JS as PKJS on phone
 
     OS->>M: launch
-    M->>S: settings_init - load from persist, defaults if absent or old version
+    M->>S: settings_load - load versioned struct or defaults
     M->>BL: backlight_apply - emery tint, flashlight OFF
-    M->>L: location_init - load last fix, state STARTUP_FIX or NONE
-    M->>R: registry_init - read pack directory from RESOURCE_ID_CATALOGS
-    M->>C: controller_init - restore last catalog and object, subscribe tick
-    C->>UI: main_window_push and render - Az/El from last fix, or placeholder
-    M->>OS: app_message_open, tick and connection subscriptions
+    M->>R: catalog_init - validate catalog pack
+    M->>M: open ephemeris resource and restore catalog/object selection
+    M->>UI: ui_init - create main canvas and About window
+    M->>OS: open AppMessage, initialize location, subscribe connection and tick
     OS-->>JS: start PKJS
     JS->>JS: ready event, read settings from localStorage
-    L->>JS: REQ_LOCATION - a fresh fix at every launch, LOC-2
+    JS->>M: JS_READY and current settings
+    M->>L: location_phone_ready - enable queued request
+    L->>JS: REQ_LOCATION - fresh fix at every launch, LOC-2
     alt manual location enabled
         JS->>M: LOCATION with manual lat, lon, elevation
     else GPS
         JS->>JS: navigator.geolocation.getCurrentPosition
         JS->>M: LOCATION with lat, lon, elevation, accuracy
     end
-    M->>L: location_on_message - state FIX, persist, next request in 60 min
-    L->>C: observer changed - invalidate ephemeris cache
-    C->>UI: render live Az/El
+    M->>L: location_process_message - persist fix, next request in 60 min
+    L->>M: location changed callback
+    M->>UI: render live Az/El
 ```
 
 ### 6.2 Periodic tick (1 s by default)
@@ -515,29 +496,26 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant T as TickTimerService
-    participant C as app_controller
-    participant E as ephemeris
-    participant P as CatalogProvider
-    participant A as astro library
+    participant T as Pebble tick service
+    participant C as src/c/astroslop.c
+    participant E as position cache and catalog API
+    participant A as src/c/astro
     participant UI as main_window
 
     T->>C: tick
-    C->>E: ephem_get_pointing for object, time, observer
-    alt cache stale - older than body validity, or object or observer changed
-        E->>P: get_apparent for object at JDE
-        P->>A: precession, nutation, aberration - or VSOP87, Moon, Kepler
-        A-->>P: apparent RA/Dec and distance
-        P-->>E: ApparentPlace
-        E->>E: store in cache with time t0
+    C->>E: calculate selected object's apparent place if cache expired
+    alt fixed object cache older than 3600 s, or solar cache older than 10/60 s
+        E->>A: catalog_apparent / astro_ephemeris_position
+        A-->>E: apparent RA/Dec, distance and magnitude
+        E->>E: cache current position and keep per-object solar cache
     end
-    E->>A: GAST, LST, equatorial to horizontal, parallax, refraction
-    A-->>E: Az/El
-    opt rise/set due - object change or every 10 min
-        E->>A: astro_riseset_next, iterative
+    C->>A: sidereal time, topocentric parallax, horizontal coordinates, refraction
+    A-->>C: Az/El
+    opt rise/set due - object/location/settings change or 10-minute refresh
+        C->>A: astro_next_event, moving bodies use timer-sliced sampling if needed
     end
-    E-->>C: PointingSolution - az, el, valid, next event, mag
-    C->>UI: main_window_update - mark only changed layers dirty
+    A-->>C: Az/El and next event
+    C->>UI: ui_update - redraw custom canvas
 ```
 
 ### 6.3 Object and catalog navigation (with filters and banner)
@@ -546,29 +524,27 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant User
-    participant Controller as app_controller
-    participant Filter as catalog_filter
-    participant Ephem as ephemeris
-    participant Banner as banner_layer
-    participant Screen as main_window
+    participant App as src/c/astroslop.c
+    participant Catalog as catalog.c
+    participant Astro as src/c/astro
+    participant Screen as main_window.c
 
-    User->>Controller: Down click
-    Controller->>Filter: filter_find_next - catalog, index, direction +1, filters
+    User->>App: Down click
+    App->>Catalog: read candidate record
     loop each candidate, wrapping at most one full cycle
-        Filter->>Filter: magnitude check from record data
-        Filter->>Ephem: elevation check using cached pointing
+        Catalog->>App: fixed or solar-system object data
+        App->>Astro: compute apparent place and elevation as needed
+        App->>App: magnitude and minimum-elevation filter checks
     end
     alt match found
-        Filter-->>Controller: new index
-        Controller->>Controller: remember selection, persisted at exit
-        Controller->>Ephem: invalidate cache for new object
+        Catalog-->>App: matching object
+        App->>App: retain current selection, debounce persistent save
         opt banner enabled
-            Controller->>Banner: banner_show - catalog title, ID, name, 31 of 110
-            Banner->>Banner: AppTimer 1.5 s, then hide
+            App->>Screen: show catalog, ID/name and ordinal for 1.5 s
         end
-        Controller->>Screen: render
+        App->>Screen: render
     else no object passes the filters
-        Controller->>Banner: banner_show - No objects match filters
+        App->>Screen: show "No objects match filters" notice
     end
 ```
 
@@ -587,7 +563,7 @@ sequenceDiagram
     alt hourly AppTimer fires
         L->>L: state REQUESTING
     else user long-presses Down
-        U->>L: location_request_refresh with force
+        U->>L: location_request with force
         L->>U: short vibe and Updating location banner
     end
     L->>JS: REQ_LOCATION with force flag
@@ -619,33 +595,32 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> NONE: no persisted fix
-    [*] --> STARTUP_FIX: persisted fix loaded
-    NONE --> REQUESTING: launch
-    STARTUP_FIX --> REQUESTING: launch
-    REQUESTING --> FIX: LOCATION message
-    REQUESTING --> ERROR: error or timeout, no usable fix
-    REQUESTING --> STALE: error or timeout, fix exists
-    FIX --> REQUESTING: hourly timer or long-press Down
-    FIX --> STALE: fix older than 75 min
-    STALE --> REQUESTING: retry timer, reconnect or long-press Down
-    ERROR --> REQUESTING: retry timer, reconnect or long-press Down
+    [*] --> MISSING: no persisted fix
+    [*] --> ACQUIRING: persisted fix loaded; fresh fix not yet received
+    MISSING --> ACQUIRING: launch / request
+    ACQUIRING --> VALID: valid LOCATION message with known altitude
+    ACQUIRING --> WARNING: valid fix without altitude
+    ACQUIRING --> ERROR: error or timeout and no usable fix
+    ACQUIRING --> WARNING: error or timeout while a fix exists
+    VALID --> ACQUIRING: hourly timer or long-press Down
+    VALID --> WARNING: fix older than 75 min
+    WARNING --> ACQUIRING: retry timer, reconnect or long-press Down
+    ERROR --> ACQUIRING: retry timer, reconnect or long-press Down
 ```
 
 **Persisted fix (LOC-7).** A fresh fix is requested at every launch (LOC-2). Until it arrives, the
 last persisted fix is used, so Az/El is shown immediately and the app keeps working when the phone
-is out of range. Moving 1 km changes Az/El by at most about 0.01°. A persisted fix is marked with
-the Location icon until a fresh fix arrives (icon key in §9.7). If it is older than 12 hours, the Warning icon and
-"Old location" are also shown.
+is out of range. While a request is pending, the Location icon is shown. A fix older than 75 minutes
+or one without a known altitude is marked with the Warning icon; unknown GPS altitude is treated as
+sea level. There is no separate 12-hour "Old location" state.
 
 | State | Az/El | Status icon |
 |---|---|---|
-| NONE / ERROR (no usable fix) | `---.-°` | **Location problem** icon. Rect screens also show "No GPS fix" (or "Location denied"). |
-| REQUESTING with no fix | `---.-°` | **Location** icon, blinking at 1 Hz when refresh is 1 s |
-| STARTUP_FIX / REQUESTING with a fix | live (persisted fix) | Location icon (steady) until the first fresh fix. Persisted fix > 12 h old: **Warning** icon and "Old location". |
-| STALE | live | **Warning** icon |
-| FIX | live | none |
-| Clock invalid (< 2025) | `---.-°` | **Alarm clock** icon |
+| MISSING / ACQUIRING (no fix) | `---.-°` | Location icon while requesting (blinks at 1 Hz for 1 s refresh); otherwise location problem. Rect screens show a short reason. |
+| ACQUIRING with a persisted fix | live from saved fix | Location icon until a new fix arrives |
+| WARNING | live from saved fix | Warning icon; fix age > 75 min or GPS altitude unknown |
+| VALID | live | No location icon |
+| Clock before 2000-01-01 or invalid | `---.-°` | Alarm clock icon |
 
 ### 6.6 Configuration change
 
@@ -654,21 +629,18 @@ sequenceDiagram
     autonumber
     participant User
     participant PhoneApp as Pebble mobile app
-    participant Page as Settings page
+    participant Page as Clay settings UI
     participant PKJS as PKJS index.js
     participant Watch
 
     User->>PhoneApp: open AstroSlop settings
-    PhoneApp->>Page: load bundled config.html
-    Page->>PKJS: sendMessage get-state, after the ready event
-    PKJS-->>Page: respond with settings, last GPS fix, watch platform
-    User->>Page: change a setting
-    Page->>PKJS: sendMessage set, one setting
-    PKJS->>PKJS: validate, store in localStorage
-    PKJS-->>Page: respond ok, or a validation error to show
-    PKJS->>Watch: AppMessage with CFG keys
-    Watch->>Watch: settings_apply, persist, re-layout, re-subscribe tick if rate changed
-    Watch->>Watch: backlight_apply, flashlight goes dark if it was disabled
+    PhoneApp->>PKJS: showConfiguration event
+    PKJS->>Page: generate Clay layout and URL with current values
+    User->>Page: edit settings, press Save
+    Page->>PKJS: webviewclosed with form response
+    PKJS->>PKJS: validate and store in localStorage
+    PKJS->>Watch: AppMessage with changed CFG keys
+    Watch->>Watch: settings_apply, persist, update tick/backlight/event state
     opt manual location turned on or edited
         PKJS->>Watch: LOCATION with manual coordinates
     end
@@ -676,15 +648,13 @@ sequenceDiagram
         PKJS->>PKJS: getCurrentPosition, then send LOCATION
     end
     opt local weather turned on
-        PKJS->>PKJS: permissions.query Location
-        PKJS-->>Page: permission status - granted, prompt or denied
-        PKJS->>PKJS: unless denied, subscribeToSource weather location
-        PKJS->>Watch: WX_TEMP_DC and WX_EXPIRES when a reading arrives
+        PKJS->>PKJS: query Location permission and attempt weather subscription
+        PKJS->>Watch: WX_TEMP_DC and WX_EXPIRES if a valid reading arrives
     end
 ```
 
-If the `Location` permission is `"prompt"`, subscribing makes the Pebble mobile app ask the user. If
-it is `"denied"`, the option is switched back off. Details are in §3.5.
+If the `Location` permission is `"prompt"`, the weather subscription may trigger the mobile app's
+permission flow. A denied or unavailable permission prevents enabling weather. Details are in §3.5.
 
 ### 6.7 UI modes
 
@@ -728,8 +698,9 @@ Time arguments are **JD(UT)** for Earth rotation and **JDE(TT)** for ephemerides
 
 ### 7.1 Pointing pipeline (two-rate)
 
-The expensive part, the apparent RA/Dec, changes slowly. The cheap part, Earth rotation to Az/El,
-changes quickly. The ephemeris module caches the slow result:
+The expensive part, the apparent RA/Dec, changes slowly. The app coordinator caches the selected
+object's apparent position and uses a separate 14-entry solar-system cache. It recomputes
+horizontal coordinates at the configured refresh interval:
 
 ```mermaid
 flowchart TB
@@ -754,15 +725,18 @@ flowchart TB
 | Sun, planets, Pluto, minor planets | 60 s | Sun ≈ 0.0007°; fastest planet (Mercury) < 0.0015° |
 | Moon | 10 s | ≈ 0.0015° |
 
-The cache is also invalidated whenever the object or the observer changes.
+Selecting a different catalog object changes the current position cache. Observer changes do not
+invalidate geocentric RA/Dec because observer parallax and horizontal coordinates are applied
+afterward.
 
 ### 7.2 Time [Meeus Ch. 7, 10]
 
 * `JD(UT) = 2440587.5 + unix_seconds / 86400`, using UTC in place of UT1. |DUT1| < 0.9 s, which
   is at most 0.004°.
-* `JDE = JD(UT) + ΔT/86400`, where `ΔT = (TAI−UTC) + 32.184 s`. TAI−UTC comes from a leap-second
-  table (IERS Bulletin C): 37 s since 2017-01-01, so ΔT = 69.184 s. Outside the table's range the
-  Espenak–Meeus polynomial is the fallback.
+* `JDE = JD(UT) + ΔT/86400`. For dates from 1972 onward the implementation uses a built-in leap
+  second table through 2017 (TAI−UTC = 37 s), then holds that offset constant; before 1972 it uses
+  the Espenak–Meeus historical ΔT polynomial. The built-in table must be updated if a future leap
+  second occurs.
 * `T = (JDE − 2451545.0) / 36525` (Julian centuries). VSOP87 uses millennia, `τ = T/10`.
 
 ### 7.3 Sidereal time [Meeus Ch. 12]
@@ -794,21 +768,20 @@ Annual parallax (< 1″) and light deflection by the Sun are ignored.
 |---|---|---|---|
 | **Sun** | Earth's heliocentric L, B, R from VSOP87D, inverted, then FK5 correction, nutation and aberration (−20.4898″/R) | [Meeus Ch. 25 "higher accuracy", Ch. 32] | ~1″ |
 | **Mercury … Neptune** | VSOP87D heliocentric L, B, R for the planet and for Earth → geocentric rectangular, with **light-time iteration**, FK5 correction, nutation and aberration | [Meeus Ch. 32, 33]; Bretagnon & Francou (1988) | ≤ 5″ (truncation target 1″ heliocentric) |
-| **Moon** | Abridged ELP-2000/82: Σl, Σr, Σb from tables 47.A/47.B (60 + 60 periodic terms, plus the A1–A3 additive terms and the E eccentricity factor), plus nutation | [Meeus Ch. 47] | ~10″ in longitude, ~4″ in latitude |
-| **Pluto** | 43-term periodic series, heliocentric J2000 → geocentric with light-time, then precession to the date | [Meeus Ch. 37] | ~1″. **Valid 1885–2099 only**; outside that range Az/El shows `---.-°`. |
+| **Moon** | Meeus Ch. 47: 60 longitude/radius terms and 60 latitude terms, plus A1–A3 additive terms and the E eccentricity factor; the coefficient tables are stored in `ephemeris.bin` and streamed in batches of at most four | [Meeus Ch. 47]; coefficient transcription from Sonia Keys' MIT-licensed `meeus` implementation | ~10″ in longitude, ~4″ in latitude |
+| **Pluto** | 43-term periodic series, heliocentric J2000 → geocentric with light-time, then precession to the date; coefficients are stored in `ephemeris.bin` and streamed in batches of at most four | [Meeus Ch. 37]; coefficient transcription from Sonia Keys' MIT-licensed `meeus` implementation | ~1″. **Valid 1885–2099 only**; outside that range calculation returns unavailable. |
 | **Vesta, Juno, Ceres, Pallas** | Two-body Kepler orbit from **JPL Horizons osculating elements** (epoch, a, e, i, Ω, ω, M), taken from a compile-time table with one element set **every 60 days for ~10 years** (2026–2036; the spacing is a build parameter). The set with the nearest epoch is used. Kepler's equation is solved by Newton iteration [Meeus Ch. 30], then J2000 ecliptic → equatorial, light-time, precession and nutation. | [Meeus Ch. 30, 33] | With at most 30 days from the epoch: about 1″–10″ (to be measured against Horizons). After the table ends, accuracy decays (see below). |
 
 **Minor-planet element table.** Osculating elements describe the two-body orbit at one instant;
 planetary perturbations (mainly Jupiter) make the real orbit drift from it, reaching about 0.1°
-within months. `tools/fetch` therefore takes element sets from JPL Horizons at a fixed spacing, and
-`build_ephemeris.py` stores them in `ephemeris.bin` (4 bodies × ~60 epochs × 56 bytes ≈ 13 KB at
-the default spacing). The spacing and end date are build-time parameters (`--epoch-step-days`,
-default **60**, and `--end-year`, default 2036). They are written to the table header, so the watch
-computes the record index from them and needs no code change when they change.
-The table stays in resource flash. When a minor planet is selected, only the 56-byte record for
-the nearest epoch is read (`resource_load_byte_range`) and held in the ephemeris cache. After the
-last epoch the last set is used, and the About screen and the settings page show "Minor planets
-accurate until 2036". A new release extends the table.
+within months. `tools/fetch_ephemeris.py` takes element sets from JPL Horizons at a fixed spacing, and
+`build_ephemeris.py` stores them in `ephemeris.bin` (four bodies × 68 epochs × 56 bytes = 15,232
+bytes in the current build). The fetch script accepts `--epoch-step-days` (default **60**) and
+`--end-year` (default 2036). The spacing and epoch count are stored in the resource header, so the
+watch does not need code changes when the table is rebuilt. The table stays in resource flash.
+When a minor planet is selected, only the nearest 56-byte record is read with
+`resource_load_byte_range`. Outside the table's epochs, the nearest endpoint is used and the
+calculation is flagged/logged; the app About text reports the nominal 2026–2036 coverage.
 
 **Topocentric parallax** [Meeus Ch. 40] is applied in the fast path. It uses the observer's
 ρ sin φ′ and ρ cos φ′ (from latitude and elevation, Ch. 11) and the body's distance Δ. It matters
@@ -819,10 +792,9 @@ consistency.
 and drops terms below an amplitude threshold set per series. The goal is ≤ 1″ heliocentric over
 1900–2100. The tool reports the resulting term counts and the maximum error compared with the full
 series. The estimate is about 1,000–1,500 terms in total, which is about 24–36 KB as `double`
-triples (A, B, C) in `resources/ephemeris.bin`. Terms are **streamed** from the resource in small
-chunks (for example 32 terms per read) into a stack buffer, so RAM use does not depend on series
-length. Meeus Appendix III (an abridged VSOP87D) is the documented reference for the method and for
-test values.
+triples (A, B, C) in `resources/ephemeris.bin`. terms are **streamed** from the resource in batches of four into a stack buffer, so RAM use does
+not depend on series length. The current ephemeris resource also contains Moon and Pluto terms.
+Its exact format and size are documented in §8.3.
 
 ### 7.6 Equatorial → horizontal [Meeus Ch. 13]
 
@@ -871,9 +843,10 @@ and the uncorrected value is shown. It can be turned off under Advanced (AST-8).
   **0.7275·π − 0.5667°** (π = horizontal parallax).
 * Fixed objects use the closed form `cos H₀ = (sin h₀ − sin φ sin δ)/(cos φ cos δ)`. A value > 1
   means the object **never rises**; a value < −1 means it is **circumpolar**.
-* Moving bodies use iterative refinement. Estimate the event time from the current RA/Dec, recompute
-  RA/Dec at that estimate, and repeat until |Δt| < 30 s (at most 5 iterations; the Moon typically
-  needs 3). This is equivalent to Meeus's interpolation method and works with any provider.
+* Moving bodies first use iterative refinement. If it does not converge or is near a polar
+  boundary, the app samples seven positions at 8-hour spacing across 48 hours, using four-point
+  Lagrange interpolation, then bisects a crossing to 30 s. The moving-body samples are calculated
+  in separate short AppTimer callbacks to avoid one long blocking calculation.
 * The display shows **only the next event after "now"** (rise or set, whichever comes first; during
   an observing session this is usually the set), within 48 h, in local time (§9.6). It is recomputed when the object changes, when the observer changes,
   every 10 minutes, and right after an event passes.
@@ -890,11 +863,11 @@ and the uncorrected value is shown. It can be turned off under Advanced (AST-8).
 | Minor planets (two-body, 60-day element table) | ~1″–10″ within the table's range | §7.5 |
 | Refraction model vs. real atmosphere | ~0.005° at 10° elevation, a few hundredths of a degree near the horizon | Pressure from elevation; temperature from weather when enabled. Weather-driven pressure changes and horizon anomalies remain. |
 | GPS position (±10 m) | negligible (< 0.0001°) | |
-| **Total** | **< 0.01° above ~10° elevation** | The 0.1° default display is very safe; 0.01° is meaningful above ~10° |
+| **Measured reference set** | **max Az 0.00152°, max El 0.00110° across 66 cases** | JPL Horizons test vectors; not a guarantee for every date/site or real atmospheric conditions |
 
-The display resolution (0.1° default, 0.01° optional) is therefore always no finer than the
-computational accuracy, which satisfies AST-5. In practice the mount, the setting circle and
-leveling errors (often 0.5–1°) dominate.
+The reference-set results are finer than the default display resolution. The optional 0.01° display
+is a formatting choice and does not imply that every model, observer location or atmosphere is
+accurate to that precision. In practice, mount, setting-circle and leveling errors often dominate.
 
 ### 7.10 Magnitudes
 
@@ -913,8 +886,8 @@ leveling errors (often 0.5–1°) dominate.
 ### 8.1 Concepts
 
 * **Catalog**: an ordered list of objects with a title, for example "Messier".
-* **Provider**: code that turns a catalog record into an apparent position. There are two now
-  (fixed and solar-system) and more can be added later.
+* **Provider tag**: identifies which of the two implemented calculation paths handles the record:
+  fixed objects or solar-system bodies. This is a dispatch tag, not a generic provider interface.
 * **Catalog pack**: a single binary resource (`RESOURCE_ID_CATALOGS`) that holds all built-in
   catalogs. It is generated at build time from the CSV files.
 
@@ -928,7 +901,7 @@ leveling errors (often 0.5–1°) dominate.
    # short_title: Caldwell
    # provider: fixed
    # source: <citation / URL>
-   # license: <SPDX id>
+   # license: <catalog metadata>
    id,name,ra_deg,dec_deg,pm_ra_mas_yr,pm_dec_mas_yr,mag,type
    C1,,11.0,85.33,,,8.1,open_cluster
    ```
@@ -947,8 +920,8 @@ leveling errors (often 0.5–1°) dominate.
    ```
 
 3. Run `pebble build`. `wscript` calls `tools/build_catalogs.py`, which validates the data (ranges,
-   duplicates, encoding, required license and source) and regenerates `resources/catalogs.bin`.
-   **No C code changes are needed.** The source and license metadata also feed the About screen and
+   duplicates, encoding and required header metadata) and regenerates `resources/catalogs.bin`.
+   **No C code changes are needed.** The source metadata also feeds the About screen and
    `CREDITS.md`.
 
 ### 8.3 Binary pack format (version 1, little-endian, packed)
@@ -981,24 +954,34 @@ BodyRecord (16 bytes)             — provider = SOLAR_SYSTEM
   … + KeplerElements table in ephemeris.bin: header (first_epoch_jde, step_days, count); per body, count × (epoch_jde, a, e, i, Ω, ω, M); H, G once
 ```
 
-These structures are defined once, in `src/c/catalog/catalog_format.h`. The Python tool mirrors
-them with `struct` format strings, and a unit test checks that the two agree. Estimated sizes:
-Messier ≈ 4 KB, stars ≈ 3.5 KB, constellations ≈ 3 KB, Sol ≈ 1 KB, for **≈ 12–15 KB in total**.
+The catalog layout is implemented in `tools/build_catalogs.py` and decoded in
+`src/c/catalog/catalog.c`; the format definitions are mirrored, not generated from a shared header.
+The current catalog pack is **10,073 bytes**.
+
+The ephemeris pack is version 2, little-endian. Its 44-byte header stores the magic/version,
+planet/axis/power counts, minor-body count and epoch metadata, VSOP directory offset, minor-body
+offset, Meeus-table offset, and the Moon-longitude, Moon-latitude and Pluto term counts. It is
+followed by 144 eight-byte VSOP directory entries, streamed 24-byte `(A,B,C)` terms, 56-byte
+seven-double minor-body element records, then:
+
+| Table | Encoding | Rows | Bytes |
+|---|---|---:|---:|
+| Moon longitude and radius | `<bbbbii` | 60 | 720 |
+| Moon latitude | `<bbbbi` | 60 | 480 |
+| Pluto | `<bbbx6d` (3 integer multipliers, padding, 6 doubles) | 43 | 2,236 |
+
+Moon and Pluto rows are read four at a time. The complete generated ephemeris resource is
+**109,240 bytes** in the current build; the four minor-body tables occupy 15,232 bytes. Both packs
+are read from Pebble resources on demand rather than copied wholesale into RAM.
 
 ### 8.4 Provider interface
 
-```c
-typedef struct CatalogProvider {
-  uint16_t (*count)(const Catalog *cat);
-  bool (*get_info)(const Catalog *cat, uint16_t idx, ObjectInfo *out);       // id, name, type, mag (static)
-  bool (*get_apparent)(const Catalog *cat, uint16_t idx, double jde,
-                       ApparentPlace *out);                                  // α, δ, Δ (AU, 0 = ∞), mag (dynamic)
-  uint16_t slow_path_validity_s;                                             // §7.1 cache policy (per body via flag)
-} CatalogProvider;
-```
-
-Future providers (user CSV, phone-streamed data, satellites via SGP4) implement the same four
-members. The UI, filter and ephemeris modules do not change.
+There is no generic function-table provider in the implementation. `catalog.h` defines two provider
+tags, `CATALOG_FIXED` and `CATALOG_SOLAR_SYSTEM`; `catalog_object()` decodes the respective record,
+and `catalog_apparent()` dispatches fixed objects to `astro_fixed_apparent()` or solar-system
+bodies to `astro_ephemeris_position()`. Adding a provider today requires changes to the record
+builder, catalog decoder and calculation dispatch. A generic provider interface remains a possible
+refactor, not a current extension API.
 
 ### 8.5 Built-in catalog contents and sources
 
@@ -1032,9 +1015,9 @@ needs no network access.
   banner says so.
 * The search wraps around the catalog at most once. If nothing matches, the app shows a "No objects
   match filters" banner and keeps the current selection.
-* Cost: about 2 ms per elevation check for a fixed object. Solar-system bodies use the per-body 60 s
-  cache. The worst case is the first Down in Sol System: 14 bodies at about 30 ms each, roughly
-  0.4 s, once, on flint.
+* Search time depends on how many candidates the filters reject and which positions need computing.
+  The coordinator logs search duration; the emulator checks are not a physical-watch performance
+  guarantee.
 
 ### 8.7 Selection memory
 
@@ -1050,8 +1033,9 @@ the object where the user left each catalog.
 * Az/El dominates: the largest practical font, centered, **black on white** by default.
 * Secondary information is small, sits at the edges, and can be turned off.
 * No menus on the watch. All configuration is done on the phone.
-* All layout numbers live in `ui/layout.c` and are selected per platform at compile time
-  (`PBL_DISPLAY_WIDTH/HEIGHT`, `PBL_ROUND`). Fine-tuning is done from emulator screenshots.
+* Layout metrics and drawing are in `src/c/ui/main_window.c`, selected per platform at compile time
+  (`PBL_DISPLAY_WIDTH/HEIGHT`, `PBL_ROUND`). The main screen and banner share a custom canvas layer;
+  the About screen uses a scroll layer. Fine-tuning is done from emulator screenshots.
 
 ### 9.2 Main screen — Pebble Time 2 (emery, 200×228)
 
@@ -1082,16 +1066,15 @@ the object where the user left each catalog.
 | Line | Content | Font |
 |---|---|---|
 | Top | Catalog title (left); position in the catalog, e.g. `31 / 110` (right) | Gothic 18 Bold |
-| Middle | Catalog ID | Bitham 42 Bold |
-| Bottom | Common name, wraps to 2 lines | Gothic 28 Bold (emery), Gothic 24 Bold (flint) |
+| Middle | Catalog ID, or object name if there is no ID | Largest fitted font, beginning with Bitham 42 Bold |
+| Bottom | Common name where present; may wrap or truncate | Fitted Gothic font |
 
 * The banner is shown for 1.5 s after the object or catalog changes, then dismissed by a timer.
-* **Catalog change**: the catalog title is shown large (Gothic 28 Bold), with the first matching
-  object's ID and name below it.
-* Objects without an ID (planets) show their name at the large size. Long names wrap, and text is
-  never cut off without an ellipsis.
-* The same banner component shows short confirmations: "Updating location…" (long-press Down),
-  "Flashlight on · 5 min" and "Flashlight off".
+* The title and object ordinal appear at the top; the selected object's ID (or name when it has no
+  ID) is the large line, with its common name below. Text uses a fitted font or ellipsis/wrapping
+  according to the screen shape.
+* The same canvas shows short confirmations such as "Updating location...", "Flashlight on" and
+  "Flashlight off".
 * The object/catalog banner can be turned off in settings (UX-7). The short confirmations are always
   shown, briefly (1 s), because they acknowledge a hidden gesture.
 
@@ -1109,11 +1092,10 @@ the object where the user left each catalog.
 
 * **Flint** shows the same information as emery, with the magnitude abbreviated to "mag". The
   temperature fits in the status bar in both time formats. At 0.01° precision the font ladder (§9.5) steps down so the text fits in 144 px.
-* **Gabbro** always shows Az/El, centered (the core requirement). Secondary fields follow the curve
-  of the screen. The temperature follows the time on the top line (`9:34 PM  54°F`). If space runs
-  short, fields are dropped in this order: magnitude, rise/set, temperature, name (the ID stays),
-  time. The status icon slot shows the flashlight indicator when no higher-priority
-  status icon is showing.
+* **Gabbro** always shows Az/El, centered (the core requirement). The round layout centers the time
+  (and temperature on displays at least 200 px wide) above the object label. It displays the rise/set
+  and magnitude footer only when they fit; it does not dynamically drop a sequence of fields as
+  proposed. One icon is shown: the highest-priority status icon, otherwise the flashlight icon.
 * **Basalt/diorite** use the flint layout. **Chalk** (180×180 round) uses the gabbro layout with
   LECO 38 Bold, no footer and no temperature.
 
@@ -1134,8 +1116,8 @@ tick. That keeps the digit size stable while values change.
 
 ### 9.6 Number formatting
 
-* Angles are converted to integer hundredths of a degree with correct rounding, then formatted
-  manually (no `%f`).
+* Angles are rounded to integer tenths or hundredths of a degree according to the selected display
+  precision, then formatted manually (no `%f`).
 * Azimuth `0.0°…359.9°` (360.0 wraps to 0.0), not zero-padded. Elevation `-90.0°…90.0°`, with a
   sign **only when negative** (`41.7°`, `-3.2°`). Both rows share the same right alignment, so the
   decimal points line up.
@@ -1153,10 +1135,10 @@ tick. That keeps the digit size stable while values change.
 * When the value is unknown, Az/El shows **`---.-°`**. It has the same width as a real value, so the
   layout does not jump.
 * The status icon slot shows the highest-priority condition:
-  **Location missing/acquiring > Clock invalid > Location stale or old**.
+  **Location missing/acquiring > Clock invalid > calculation/location warning**.
   The flashlight indicator is shown next to it whenever the flashlight is on.
-* Icons come from `pebble-dev/iconography` (Apache-2.0): the original PebbleOS system icons, plus
-  two Rebble community location icons. They are bundled as PNG at 25 px (emery, gabbro) and 18 px
+* Icons come from Pebble/Rebble iconography: PebbleOS system icons, plus Rebble location icons.
+  They are bundled as PNG at 25 px (emery, gabbro) and 18 px
   (flint, basalt, diorite, chalk).
 
 **Icon key** (shown at 3× size)
@@ -1166,7 +1148,7 @@ tick. That keeps the digit size stable while values change.
 | ![location](images/icons/location_25.png) | ![location](images/icons/location_18.png) | Acquiring a location, or using the persisted fix until a fresh one arrives (blinks while there is no fix) | `icons/25px_Location` (Rebble) |
 | ![location problem](images/icons/location_problem_25.png) | ![location problem](images/icons/location_problem_18.png) | No usable location: no fix, GPS error or permission denied | `icons/25px_Location_problem` (Rebble) |
 | ![alarm clock](images/icons/alarm_clock_25.png) | ![alarm clock](images/icons/alarm_clock_18.png) | Watch clock not set | `pebbleos/Pebble_25x25_Alarm_clock` |
-| ![warning](images/icons/warning_25.png) | ![warning](images/icons/warning_18.png) | Location is stale (> 75 min) or the persisted fix is old (> 12 h) | `pebbleos/Pebble_25x25_Generic_warning` |
+| ![warning](images/icons/warning_25.png) | ![warning](images/icons/warning_18.png) | Location is stale (> 75 min), GPS altitude is unknown, or position calculation is unavailable | `pebbleos/Pebble_25x25_Generic_warning` |
 | ![flashlight](images/icons/backlight_25.png) | ![flashlight](images/icons/backlight_18.png) | Flashlight on (§6.8) | `pebbleos/Pebble_80x80_Backlight`, scaled down |
 
 * Rect screens show a short reason under the placeholder ("No GPS fix", "Clock not set") in
@@ -1206,16 +1188,17 @@ events light up red.
 ### 9.10 About and Credits (watch)
 
 The watch About screen is a Gothic 18 `ScrollLayer`, opened with long-press Up and closed with Back.
-It shows the app version, minor-planet validity date (§7.5) and brief credits generated from CSV
-source headers (§13.2). Full citations and links appear on the settings page and appstore listing.
-A screenshot is in §9.11.
+It shows the app version, nominal minor-planet coverage (§7.5), algorithm credits, catalog source
+credits generated from CSV metadata, and the personal/scientific-use notice (§13.2). The settings
+page also shows catalog source credits and a repository URL.
 
-### 9.11 Emulator renderings
+### 9.11 Design mockups
 
-SDK-emulator mockups (scale 2) show the §9.2–§9.8 layouts with sample values (M31, Jupiter). The
-location icon is a placeholder, and the About text is not scrolled. All images use the same scale;
-the top row shows required platforms and the bottom row older supported platforms. Chalk has no
-footer or temperature (§9.4); aplite is not supported (§3.2).
+The following are design mockups (scale 2) with sample values, not captured runtime screenshots.
+The location icon and About content are illustrative. The Emery and Gabbro interface renderings are
+also shown in the [README](../README.md#interface-mockups). All images below use the same scale; the
+top row shows required platforms and the bottom row older supported platforms. Chalk has no footer
+or temperature (§9.4); aplite is not supported (§3.2).
 
 **Main**
 
@@ -1249,11 +1232,14 @@ footer or temperature (§9.4); aplite is not supported (§3.2).
 
 ## 10. Configuration, Messaging and Persistence
 
-### 10.1 Settings page (`src/pkjs/config.html`, bundled `configPage`)
+### 10.1 Settings page (Clay)
 
-Settings apply on change: toggles and selects immediately, number fields on valid blur. The page
-sends each change to PKJS, which validates and stores it, forwards it to the watch, and returns
-validation errors for display. There is no Save button.
+`src/pkjs/config.js` defines the Clay layout and help text; `src/pkjs/index.js` instantiates Clay,
+provides saved values and the last phone GPS fix, opens the generated URL in the Pebble mobile app,
+and handles the returned `webviewclosed` response. Changes are applied after the user presses
+**Save**. PKJS validates the submitted values, persists them to `localStorage`, and sends changed
+watch settings via AppMessage. Invalid values are logged and ignored. Phone-only location fields
+remain in `localStorage`; watch-relevant settings are also persisted by the C app.
 
 | Section | Setting | Type | Default |
 |---|---|---|---|
@@ -1263,7 +1249,7 @@ validation errors for display. There is no Save button.
 | | Show local time | toggle | on |
 | | Show next rise/set | toggle | on |
 | | Show magnitude | toggle | on |
-| | Use local weather (temperature in the status bar, also used for refraction) | toggle. Turning it on checks and requests the `Location` permission (§3.5). The page shows the permission status ("Allow Location…" or "Location permission is off…") or "Weather unavailable". | off |
+| | Use local weather (temperature in the status bar, also used for refraction) | toggle. Requires the weather plugin and an available Location permission; unavailable or expired data falls back to 10 °C for refraction. | off |
 | | Coordinate precision | select: 0.1° / 0.01° | 0.1° |
 | | Show name banner when switching | toggle | on |
 | | Colors | select: Black on white / White on black | Black on white |
@@ -1278,37 +1264,43 @@ validation errors for display. There is no Save button.
 | | "Use last phone GPS fix" | button: asks PKJS for its last fix and fills the three fields | — |
 | | (help text) "Long-press Down on the watch to refresh GPS." | text | — |
 | **Advanced** | Atmospheric refraction | toggle | on |
-| **About** | App version, data sources and licenses (links open with `Pebble.openUrl`) | text | — |
+| **About** | App version, nominal minor-planet date range, data-source acknowledgements and repository link | text | — |
 
 The defaults point at the Royal Observatory Greenwich (Airy Transit Circle). The manual-location
 fields are kept in phone `localStorage`. PKJS turns them into a `LOCATION` message, so the watch
-never needs to know about manual mode beyond a "manual" source flag.
+does not need to know about manual mode beyond a "manual" source flag. The last successful phone
+GPS fix is also cached in phone `localStorage` for the settings page's "Use last phone GPS fix"
+button.
 
 ### 10.2 AppMessage keys (`package.json → messageKeys`)
 
 | Direction | Key | Type | Meaning |
 |---|---|---|---|
 | watch → phone | `REQ_LOCATION` | uint8 | 1 = normal, 2 = forced (long-press Down) |
-| phone → watch | `LOC_LAT_E6`, `LOC_LON_E6` | int32 | Degrees × 10⁶ |
+| phone → watch | `JS_READY` | uint8 | PKJS is ready; watch may send the queued location request |
+| | `LOC_LAT_E6`, `LOC_LON_E6` | int32 | Degrees × 10⁶ |
 | | `LOC_ALT_M` | int16 | Meters |
+| | `LOC_ALT_VALID` | uint8 | Whether GPS altitude is known; otherwise use sea level and show a warning |
 | | `LOC_ACC_M` | uint16 | Horizontal accuracy in meters (0 = manual) |
 | | `LOC_SOURCE` | uint8 | 0 = GPS, 1 = manual |
+| | `LOC_TIME` | uint32 | UTC time of fix |
 | | `LOC_ERROR` | uint8 | 1 = permission not yet granted (retry), 2 = permission denied, 3 = timeout/unavailable |
 | | `WX_TEMP_DC` | int16 | Local air temperature in tenths of °C (sent on change while "Use local weather" is on) |
 | | `WX_TEMP_UNIT` | uint8 | Display unit: 0 = °C, 1 = °F (the user's weather unit in the Pebble mobile app) |
 | | `WX_EXPIRES` | uint32 | UTC seconds after which the reading is dropped: the update's `validUntilMs`, else receipt + 3 h |
+| | `WX_CLEAR` | uint8 | Clear the current weather reading |
 | phone → watch (settings page via PKJS) | `CFG_*` | ints | One per watch-relevant setting in §10.1 (including `CFG_FLASHLIGHT_ENABLED`, `CFG_FLASHLIGHT_MIN`) |
 
-The inbox and outbox are sized to the measured maximum dictionary size plus a margin (about 256 and
-64 bytes).
+The inbox and outbox are opened with 512 and 64 bytes, respectively.
 
 ### 10.3 Persistent storage (watch)
 
 | Key | Content | Notes |
 |---|---|---|
-| 1 `SETTINGS` | `Settings` struct with a `version` field | Unknown or old version → migrate or reset to defaults (per-platform flashlight default) |
+| 1 `SETTINGS` | `Settings` struct with version 1 | Invalid size/version/value → log a warning and use defaults (per-platform flashlight default); no migration is implemented |
 | 2 `LOCATION` | lat/lon ×10⁶, alt, source, UTC timestamp of the fix | Used at launch (marked stale until refreshed) |
-| 3 `SELECTION` | Active catalog index + last index per catalog | Written on change (debounced) and at exit |
+| 10 `ACTIVE_CATALOG` | Active catalog index | Written with the selection |
+| 100 + catalog index `SELECTION` | Last object index in that catalog | Debounced write after selection change and flush on exit |
 
 The flashlight state is **not** persisted. Every launch starts with the flashlight off.
 
@@ -1316,61 +1308,67 @@ The flashlight state is **not** persisted. Every launch starts with the flashlig
 
 ## 11. Localization
 
-* At startup the app calls `setlocale(LC_ALL, "")`, as the SDK i18n guide describes. Only **en_US**
-  strings ship. Any other locale falls back to en_US.
-* All UI strings use IDs, for example `_(STR_RISE)`, resolved through `services/l10n` from a
-  per-locale table (`l10n_en_US.c`). This follows the SDK's Locale Framework pattern without its
-  hashing step. Adding a locale means adding one file and one registry line.
-* Dates and times use `strftime` and `clock_is_24h_style()`, which the system localizes.
-* Numbers always use `.` as the decimal separator because of an SDK limitation. The formatter has a
-  hook for a locale-specific separator in the future.
-* Catalog object names are data. The pack format reserves room for per-locale string tables (CSV
-  columns named `name_<locale>`) in the future.
-* Settings page strings are English. The page keeps them in one string table, so it can pick one by
-  `navigator.language` later.
+* The app calls `setlocale(LC_ALL, "")` and resolves watch UI text through `l10n(StringId)` in
+  `src/c/services/l10n.c`. Only a single English string table is implemented; the SDK Locale
+  Framework and other locales are not.
+* Date/time formatting uses `strftime()` and the watch's 12/24-hour preference.
+* Numeric values use a manual formatter and a decimal point. No locale-specific number formatting
+  is implemented.
+* Catalog names and Clay settings/help text are English data/content; locale-specific catalog
+  strings and settings translations remain future work.
 
 ---
 
 ## 12. Performance, Memory and Power Budgets
 
-These are estimates. They will be measured with `time_ms()` instrumentation in debug builds, on the
-emulator and on hardware, and the design is revisited if a budget is exceeded.
+CPU figures below are preliminary estimates, not measured physical-watch benchmarks. App memory
+and resource sizes are measured from the current SDK build. The host test suite and emulator do not
+replace testing on physical watches.
 
 ### 12.1 CPU (worst case: flint, 64 MHz Cortex-M4, soft-float)
 
-| Operation | ≈ trig calls | Estimated time | Frequency |
+| Operation | ≈ trig calls | Estimate | Frequency |
 |---|---|---|---|
 | Fast path (GAST, equ→hor, parallax, refraction) | ~15 | < 1 ms | every tick (1 s) |
 | Star apparent place | ~40 | ~2 ms | hourly or on change |
 | Planet (Earth + planet VSOP87, light-time ×2) | ~600–800 | 30–40 ms | every 60 s or on change |
 | Moon (Ch. 47) | ~150 | ~8 ms | every 10 s |
-| Rise/set (moving body, ≤ 5 iterations × 2 events) | ~10 × slow path | ≤ 0.4 s | on change and every 10 min |
+| Rise/set (moving body, iterative refinement or sampled fallback) | varies | not yet characterized on physical watches | on selection/location/settings change and at 10-minute intervals |
 
-Average CPU load stays well below 1%. Long computations either respond to a user action or are
-spread out over time. If measurements show rise/set work blocking the UI, it moves to a deferred
-`app_timer` step that runs after the banner is drawn.
+Moving-body fallback position sampling is split across AppTimer callbacks; the final interpolation
+and event search still run on the watch's event loop. Physical-watch latency and battery impact
+remain to be measured.
 
 ### 12.2 Memory (flint, the tightest required platform: 64 KB code + heap)
 
-| Item | Estimate |
-|---|---|
-| libm + soft-float runtime | ~14 KB (measured) |
-| astro library | ~12 KB |
-| UI, services, catalog, controller | ~14 KB |
-| Heap: windows, layers, icons, buffers | ~6 KB |
-| **Total** | **~46 KB of 64 KB** (emery/gabbro: 128 KB) |
+The original estimate of ~46 KB for a 64 KB watch was low. The SDK's post-link memory report for
+the current clean build reports the following total footprint and remaining heap:
 
-| Resources | Estimate |
+| Platform | RAM limit | Total footprint | Free heap at load |
+|---|---:|---:|---:|
+| flint | 64 KB | 60,584 B | 4,952 B |
+| basalt | 64 KB | 60,476 B | 5,060 B |
+| diorite | 64 KB | 60,476 B | 5,060 B |
+| chalk | 64 KB | 60,140 B | 5,396 B |
+| emery | 128 KB | 60,632 B | 70,440 B |
+| gabbro | 128 KB | 60,592 B | 70,480 B |
+
+The Flint emulator logged **3,756 B free heap after startup**. The pre-resource-move baseline was
+2,016 B free at load and 820 B after startup; moving the Moon and Pluto tables from compiled C
+arrays into `ephemeris.bin` recovered about 2.9 KB at load. These measurements are build- and
+firmware-specific. The 64 KB targets have a tight heap budget; further growth requires measurement.
+
+| Resources | Measured size |
 |---|---|
-| `catalogs.bin` | ~15 KB |
-| `ephemeris.bin` (truncated VSOP87D + Pluto + Moon terms + minor-planet element table ≈ 13 KB) | ~40–55 KB |
-| Icons (PNG, 2 sizes × 5) | ~4 KB |
-| **Total** | **< 75 KB of 256 KB** |
+| `catalogs.bin` | 10,073 B |
+| `ephemeris.bin` (VSOP87D + Moon/Pluto coefficients + 4 × 68 minor-body records) | 109,240 B |
+| `app_resources.pbpack` (all registered app resources, including icons) | 124,331 B |
+| Pebble resource limit | 256 KB |
 
 ### 12.3 Power
 
-* Each tick redraws only the layers whose text changed. At a 1 s refresh that is usually just the
-  Az/El rows.
+* The app invalidates a custom canvas when its screen state changes; actual drawing cost has not
+  been measured on physical hardware.
 * "1 minute" refresh subscribes to `MINUTE_UNIT`. The 5 s and 15 s options use `SECOND_UNIT` and
   skip ticks (the work per skipped tick is a single comparison).
 * No background worker. Bluetooth is used about once an hour for location, plus for configuration
@@ -1394,74 +1392,67 @@ spread out over time. If measurements show rise/set work blocking the UI, it mov
 | Python 3 (stdlib only) | ≥ 3.8 | PSF | Build-time catalog and ephemeris tools |
 | Host GCC/Clang | any C99 | — | Host unit tests (not shipped) |
 
-There are no other runtime libraries, on the watch or in PKJS. The settings page is self-contained
-HTML/CSS/JS (UX-9).
+`@rebble/clay` 1.1.0 is a PKJS dependency used to generate the mobile settings page. The watch
+application has no third-party runtime library.
 
-### 13.2 Data and asset sources (shown in About and in `CREDITS.md`)
+### 13.2 Data and asset sources (acknowledged in About and `CREDITS.md`)
 
-Each `tools/fetch` script records the publisher's license or usage statement in the CSV header.
+| Data | Source |
+|---|---|
+| Algorithms | Jean Meeus, *Astronomical Algorithms*, 2nd edition (1998) |
+| Planetary theory | IMCCE / Paris Observatory VSOP87D, P. Bretagnon & G. Francou (1988), via CDS VizieR VI/81 |
+| Moon model | Meeus chapter 47; coefficient transcription from Sonia Keys' `meeus` implementation |
+| Pluto model | Meeus chapter 37; coefficient transcription from Sonia Keys' `meeus` implementation |
+| Minor-planet elements and H/G values | NASA/JPL Horizons and Small-Body Database |
+| Bright stars | Yale Bright Star Catalogue, 5th revised edition, via NASA HEASARC; names from the IAU Working Group on Star Names |
+| Messier objects | NASA HEASARC Messier and NGC 2000.0 tables |
+| Constellation centers | IAU boundaries, digitized by Davenhall & Leggett, CDS VizieR VI/49 |
+| Cross-checks | SIMBAD at CDS; NASA/JPL Horizons test vectors |
+| Time | IERS leap-second notices; Espenak–Meeus ΔT polynomial |
+| Optional weather | User's Pebble mobile app weather plugin |
+| Status icons | PebbleOS and Rebble icons from Pebble iconography |
+| Settings UI | Clay for Pebble (`@rebble/clay`) |
 
-| Data | Institution / source | License / terms acknowledged |
-|---|---|---|
-| Algorithms | J. Meeus, *Astronomical Algorithms*, 2nd ed., Willmann-Bell, 1998 | Algorithms implemented independently from the book, with chapter citations. No book text is copied. |
-| Planetary theory | **IMCCE / Paris Observatory**: VSOP87D, P. Bretagnon & G. Francou (1988), A&A 202, 309; via **CDS** VizieR VI/81 | CDS terms: cite the paper and "CDS/VizieR". |
-| Moon | ELP-2000/82 (M. Chapront-Touzé & J. Chapront, **Bureau des longitudes**, 1988, A&A 190, 342), truncated per Meeus Ch. 47 | Cite the theory and Meeus Ch. 47. |
-| Pluto | Meeus Ch. 37 series (after Goffin, Meeus & Steyaert) | Cite Meeus Ch. 37. |
-| Minor-planet elements, H/G | **NASA/JPL** Solar System Dynamics: Horizons (osculating elements at the table spacing) and the Small-Body Database (H, G) | JPL citation: "NASA/JPL Solar System Dynamics, data retrieved <date>". No NASA/JPL logos or claim of endorsement. |
-| Bright stars: positions, proper motions, V | **Yale University Observatory**: Bright Star Catalogue, 5th rev. ed. (D. Hoffleit & W.H. Warren Jr., 1991), from **NASA HEASARC** table BSC5P (also CDS V/50) | No explicit license; cite Hoffleit & Warren (1991) and NASA HEASARC. Used: positions, proper motions and V magnitudes of 100 stars. |
-| Star names | **IAU** Working Group on Star Names (WGSN), IAU Catalog of Star Names | Creative Commons Attribution; credit the IAU WGSN. |
-| Local temperature (optional) | The user's weather provider, through the Pebble mobile app's weather plugin | Read at runtime only; nothing is stored or redistributed. |
-| Messier objects | **NASA HEASARC** Messier table (compiled from *Sky Catalogue 2000.0*, Hirshfeld & Sinnott 1985); M102 = NGC 5866 from the HEASARC NGC 2000.0 table | No explicit license; cite HEASARC and Hirshfeld & Sinnott (1985). Used: positions, types and magnitudes of 110 objects. |
-| Constellation boundaries | **IAU**: E. Delporte (1930); digitized by A.C. Davenhall & S.K. Leggett (1989), **CDS** VizieR VI/49 | CDS terms, as for VSOP87. Used: boundary vertices, to compute 88 centers at build time. |
-| Cross-checks | SIMBAD, **CDS** Strasbourg (Wenger et al. 2000, A&AS 143, 9) | SIMBAD acknowledgement: "This research has made use of the SIMBAD database, operated at CDS, Strasbourg, France". |
-| ΔT / leap seconds | **IERS** Bulletin C; F. Espenak & J. Meeus, **NASA**/TP-2006-214141 | NASA / IERS publications; cite them. |
-| Status icons | `pebble-dev/iconography`: PebbleOS system icons and Rebble community icons | **Apache-2.0**. Ship the license text and mark the icons as modified (resized/recolored). |
-| Verification | **NASA/JPL** Horizons | Test reference values only; cited in the test data. |
+The watch About text acknowledges bundled data sources and states: "Catalog data for personal and
+scientific use only; review source terms." Catalog source text is generated from metadata in the
+registered CSV files.
 
-`LICENSES/` holds the full license texts. Each CSV header records its exact source and
-license or terms, and the tool refuses to build a catalog that is missing either one.
+### 13.3 Code and credits
 
-### 13.3 Licensing model
-
-* **Code: MIT.** All source code (C, JS, Python tools).
-* **Data: per source.** Each catalog CSV keeps its own license or terms note, following the
-  [REUSE](https://reuse.software/) convention (`REUSE.toml` plus `LICENSES/`). Code and data are
-  licensed separately.
-* **Attribution.** The credits required by §13.2 appear on the watch About screen (§9.10), the
-  settings page, `CREDITS.md` and the Pebble appstore description.
-* **Apache-2.0 icons.** Include `LICENSES/Apache-2.0.txt` and a modification notice.
+The application code is MIT-licensed. Source acknowledgements are shown on the watch and in
+`CREDITS.md`.
 
 ---
 
-## 14. Verification Strategy
+## 14. Verification Status
 
-| Level | What | How |
+The following results describe the implemented baseline. Passing host tests and an SDK build do not
+replace a complete emulator pass or field validation on physical watches.
+
+| Level | Result |
 |---|---|---|
-| **Unit (host)** | `src/c/astro/` | `make -C test/astro` builds the library with host GCC (it has no Pebble dependency). Test vectors are the Meeus worked examples: 7.a (JD), 12.a/12.b (sidereal time), 13.b (alt/az), 15.a (rise/set), 16.a (refraction), 21.b (precession), 22.a (nutation), 23.a (apparent place), 25.a/25.b (Sun), 32.a and 33.a (Venus), 37.a (Pluto), 47.a (Moon), 41 (magnitudes). Tolerances follow each example's stated precision. |
-| **Reference (host)** | End-to-end Az/El | About 50 cases of object × time × site (including high latitude and the southern hemisphere) compared with **JPL Horizons** apparent Az/El (refracted, topocentric). Tolerance is 0.01° for stars, planets and the Moon, and 0.1° for minor planets near their epoch. The Horizons outputs are committed with attribution. |
-| **Unit (tools)** | `build_catalogs.py` | Python `unittest`: round trip from pack to parse, validation errors, and format parity with `catalog_format.h` |
-| **Build** | All targets | `pebble build` with zero warnings for emery, flint, gabbro, basalt, chalk and diorite. The memory reported by the SDK build must stay within budget. |
-| **Emulator** | UI and behavior per platform | For each platform: `pebble install --emulator <p> --vnc`. Take screenshots of the main screen (valid values, `---.-°`, each icon state, flashlight indicator), the banner and the About screen. Exercise button flows with `pebble emu-button click <button>`; add `--duration 1000` for long presses (Select = flashlight, Down = GPS refresh, Up = About). Check the logs for errors and timing instrumentation. Review the round screens (gabbro, chalk) and the 144 px screens separately. |
-| **Phone integration** | PKJS + settings page | Emulator settings page (`pebble emu-app-config`), live validation messages, the manual-location path, the weather temperature path (the emulator serves sample weather), including turning the option on with `Location` set to granted, prompt (after `--reset`) and denied, the permission paths (`pebble emu-permission Location --deny/--grant/--reset`), GPS timeout, and per-platform flashlight defaults. |
-| **Field** | Real sky and hardware | Point at known objects (Moon, a planet, bright stars) and compare with a planetarium app or Horizons. Check the flashlight duration and red tint on emery. |
+| **Unit (host)** | Passed. `make -C test/astro` covers Meeus worked examples and astronomy edge cases. |
+| **Reference (host)** | Passed for 66 JPL Horizons cases. Maximum observed error: 0.00152° azimuth and 0.00110° elevation. The sampled set is not a guarantee for all dates, sites or atmospheric conditions. |
+| **Build** | `pebble build` passed for emery, flint, gabbro, basalt, chalk and diorite. The memory measurements are in §12.2. |
+| **Tools / companion** | Python catalog/ephemeris builder tests and Node companion tests passed. Use `python3 -m unittest discover -s test/tools -v` and `node test/pkjs/companion.test.js`. |
+| **Emulator** | Flint startup and an Emery Pluto display were checked. This was not a complete per-platform UI, button, permission or weather matrix. The Moon was below the default elevation filter during its attempted emulator check. |
+| **Phone integration** | The user reported that the settings page loaded on an up-to-date Emery with plugins enabled. The full permission, GPS, manual-location and weather matrix has not been verified here. |
+| **Field** | Not completed: physical-watch performance, battery life, backlight behavior and live sky comparisons remain outstanding. |
 
 ---
 
 ## 15. Future Enhancements and Extension Points
 
-| Enhancement | Extension point already in the design |
+| Enhancement | Work needed |
 |---|---|
-| Equatorial and other coordinate displays | `PointingSolution` already carries RA/Dec. Add a display mode in `layout` and settings. |
-| Custom catalogs (CSV/JSON import) | A new `user_catalog` provider. PKJS parses the file and sends the records over AppMessage, where they are stored in persistent storage (1 MB on the required watches) in the same `FixedRecord` format. |
-| Favorites / hide / observation plans | A "virtual catalog" provider that holds (catalog, index) references and is persisted. |
-| Dynamic catalogs / live ephemeris from public APIs | A `remote_catalog` provider. PKJS fetches data (e.g. JPL Horizons/SBDB) and streams apparent positions. Fresh minor-planet elements could come the same way (AST-7). |
-| Artificial satellites (TLE) | A `satellite` provider implementing SGP4 in `astro/`, with a fast-path cache validity of about 1 s. |
-| Astronomy library spin-out | `src/c/astro/` is already standalone C99 with host tests. It can move to its own repository or a submodule without code changes. |
-| More localizations | `l10n_<locale>.c`, the `name_<locale>` CSV columns, and the settings page string table. |
-| Larger digits on emery | Optional bundled open-licensed digit font. |
-| Backlight dimming (emery) | A low-intensity tint through `light_set_color_rgb888`, added as a third tint option in `backlight`. |
-| Touch (emery/gabbro) | Tap or swipe to change object, through the controller's existing actions. |
-| More button gestures | Buttons map to abstract controller `Action`s, so remapping or adding gestures (e.g. multi-click) changes only the click config provider. |
+| Equatorial and other coordinate displays | Expose the relevant computed coordinates through the app state, then add a display mode and settings. |
+| Custom catalogs (CSV/JSON import) | Build-time CSV catalogs are supported now; user import needs a file-selection/transfer flow, validation, storage, and a way to register imported catalogs on the watch. |
+| Favorites / observation plans | Add persisted object references and corresponding navigation/configuration UI; no virtual-catalog API exists today. |
+| Dynamic catalogs / current minor-planet elements | Add a companion data-fetch and transfer flow, with explicit cache and offline behavior. Current built-in calculations are on-watch and do not fetch positions. |
+| Artificial satellites (TLE) | Implement and validate an SGP4 calculation path, then add a record representation and dispatch in the catalog code. |
+| More localizations | Expand the English string table and translate the Clay settings content; no locale-specific catalog strings exist yet. |
+| Physical performance and power measurements | Profile the soft-float astronomy and rise/set paths, memory headroom, battery use and long-running display behavior on supported hardware. |
+| More display or input options | Extend the existing platform-specific canvas layout and Pebble button handling; no abstract controller action layer exists. |
 
 ---
 
@@ -1494,10 +1485,12 @@ license or terms, and the tool refuses to build a catalog that is missing either
 16. Allen, C.W. (1973). *Astrophysical Quantities*, 3rd ed. Athlone Press (lunar magnitude).
 17. Wenger, M. et al. (2000). "The SIMBAD astronomical database." *A&AS* 143, 9.
 18. Pebble Developer Documentation (SDK 4.44). https://developer.repebble.com — guides used: Hardware
-    Information; Backlight; Plugins (Preview), "Settings pages" (`configPage`,
-    https://developer.repebble.com/guides/plugins/preview); App Configuration; PebbleKit JS;
-    Persistent Storage; Internationalization; System Fonts; Round App UI; Conserving Battery Life;
-    Building for Every Pebble; Buttons.
+    Information; Backlight; Plugins (Preview); App Configuration; PebbleKit JS; Persistent Storage;
+    Internationalization; System Fonts; Round App UI; Conserving Battery Life; Building for Every
+    Pebble; Buttons.
 19. PebbleOS source and resources. https://github.com/coredevices/PebbleOS (Apache-2.0).
 20. Iconography for Pebble (PebbleOS and Rebble community icons). https://github.com/pebble-dev/iconography
     (Apache-2.0).
+21. Clay for Pebble. https://github.com/pebble-dev/clay — settings-page framework used by PKJS.
+22. Keys, S. `meeus`: https://github.com/soniakeys/meeus — source of the Moon and Pluto coefficient
+    table transcriptions.

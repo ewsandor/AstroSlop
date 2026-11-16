@@ -1,0 +1,20 @@
+# title: Sol System
+# short_title: Sol System
+# provider: solar_system
+# source: IMCCE VSOP87D; Meeus, Astronomical Algorithms; NASA/JPL Horizons and Small-Body Database
+# license: LicenseRef-Source-Terms
+id,name,kind,index
+,Sun,sun,0
+,Mercury,planet,0
+,Venus,planet,1
+,Moon,moon,0
+,Mars,planet,3
+,Jupiter,planet,4
+,Saturn,planet,5
+,Uranus,planet,6
+,Neptune,planet,7
+,Pluto,pluto,0
+,Vesta,minor,0
+,Juno,minor,1
+,Ceres,minor,2
+,Pallas,minor,3
