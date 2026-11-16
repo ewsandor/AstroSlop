@@ -1,12 +1,12 @@
 {
   "name": "astroslop",
-  "author": "MakeAwesomeHappen",
+  "author": "Sandor Laboratories",
   "version": "1.0.0",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},
   "pebble": {
-    "displayName": "astroslop",
+    "displayName": "AstroSlop",
     "uuid": "0f463d47-47e7-46f1-a7d6-94590ffc001d",
     "sdkVersion": "3",
     "enableMultiJS": true,
