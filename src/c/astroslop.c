@@ -421,7 +421,12 @@ static void start_banner(const char *message, bool selection_after) {
 
 static void show_selection_banner(void) {
   if (s_settings.banner && s_object_valid) start_banner(NULL, false);
-  else update_display();
+  else {
+    cancel_timer(&s_banner_timer);
+    s_banner_active = false;
+    s_selection_after_banner = false;
+    update_display();
+  }
 }
 
 static void save_selection(void *context) {
