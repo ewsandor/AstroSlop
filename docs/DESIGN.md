@@ -412,7 +412,7 @@ The watch coordinator depends directly on the modules it orchestrates:
 
 ```
 astroslop/
-├── docs/DESIGN.md, docs/DESIGN.pdf
+├── docs/DESIGN.md
 ├── README.md, CREDITS.md, LICENSE, LICENSES/
 ├── package.json, package-lock.json, wscript
 ├── catalogs/                         ← CSV data and catalogs.json registration order

@@ -179,6 +179,5 @@ headers. Edit catalog headers rather than the generated credits document.
 
 ## Design documentation
 
-Read the [Design and As-Built Document 0.2](docs/DESIGN.md) or its
-[PDF version](docs/DESIGN.pdf) for requirements, architecture, algorithms,
-mockups and verification status.
+Read the [Design and As-Built Document 0.2](docs/DESIGN.md) for requirements,
+architecture, algorithms, mockups and verification status.
