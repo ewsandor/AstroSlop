@@ -583,11 +583,10 @@ static void cycle_object(int direction) {
     if (persist_write_bool(FILTER_NOTICE_ACK_KEY, true) < 0) {
       APP_LOG(APP_LOG_LEVEL_ERROR, "Could not save filter notice acknowledgement");
     }
-  }
-  if (!s_object_valid) {
-    update_display();
+    show_selection_banner();
     return;
   }
+  if (!s_object_valid) return;
   ObjectSearch selection = {0};
   SearchStatus status = find_object(&s_catalog, s_object_index, direction, false, &selection);
   if (status != SEARCH_MATCH) {

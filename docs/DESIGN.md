@@ -1008,7 +1008,8 @@ needs no network access.
 * Because the elevation filter is on by default, it is the first item on the settings page.
   At any configured elevation threshold, the first successful search after installation that
   skips an object for elevation shows "Objects filtered / Phone app settings / Scroll to continue".
-  The notice remains until the user scrolls up or down. Acknowledgement is saved across app
+  The notice remains until the user scrolls up or down, revealing the selected object without
+  advancing again. Acknowledgement is saved across app
   launches; if the app exits before acknowledgement, the notice reappears on launch.
 * Filters apply only **while cycling**. The currently selected object is never hidden or switched
   automatically while the user is looking at it.
