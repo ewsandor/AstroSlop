@@ -1,6 +1,6 @@
-# AstroSlop
+# Astronomy Tools
 
-AstroSlop is a Pebble watchapp for visual astronomy with an altitude-azimuth
+Astronomy Tools is a Pebble watchapp for visual astronomy with an altitude-azimuth
 mount, such as a Dobsonian telescope. It shows where to point a telescope using
 a setting circle and an inclinometer.
 
@@ -39,7 +39,7 @@ round displays may omit secondary fields.
 | Toggle timed flashlight | Hold Select |
 | About and credits | Hold Up |
 
-Change settings from the gear icon next to AstroSlop in the Pebble mobile app.
+Change settings from the gear icon next to Astronomy Tools in the Pebble mobile app.
 The settings page uses [Clay](https://github.com/pebble-dev/clay), the SDK's
 recommended configuration framework; changes apply when you tap **Save**. The
 elevation filter is enabled at 0° by default; disable it to browse objects below the horizon. On watches with
@@ -122,7 +122,7 @@ pebble login  # needed once
 pebble install --cloudpebble build/astroslop.pbw
 ```
 
-Allow AstroSlop access to your phone's location when prompted.
+Allow Astronomy Tools access to your phone's location when prompted.
 
 ### Run in an emulator
 

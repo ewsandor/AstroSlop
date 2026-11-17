@@ -26,9 +26,9 @@ const char *l10n(StringId id) {
     [STR_CATALOG_UNAVAILABLE] = "Catalog unavailable",
     [STR_MAGNITUDE] = "Magnitude",
     [STR_MAG_SHORT] = "mag",
-    [STR_ABOUT_TITLE] = "About AstroSlop",
+    [STR_ABOUT_TITLE] = "About Astronomy Tools",
     [STR_ABOUT_BODY] =
-      "AstroSlop 0.0.1\nMinor planets:\n2026-2036\n\n"
+      "Astronomy Tools 0.0.1\nMinor planets:\n2026-2036\n\n"
       "Algorithms: J. Meeus, Astronomical Algorithms; VSOP87, Bretagnon & Francou / IMCCE; "
       "Sonia Keys (MIT).\n\n"
       CATALOG_CREDITS

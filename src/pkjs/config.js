@@ -19,7 +19,7 @@ module.exports = function(page) {
     return '<li>' + escapeHtml(credit.title + ': ' + credit.source + ' (' + credit.license + ')') +
       '</li>';
   }).join('');
-  var config = [{type: 'heading', defaultValue: 'AstroSlop'}];
+  var config = [{type: 'heading', defaultValue: 'Astronomy Tools'}];
   if (page.notice) config.push({type: 'text', defaultValue: page.notice});
   return config.concat([
     {type: 'section', items: [
@@ -94,7 +94,7 @@ module.exports = function(page) {
     {type: 'section', items: [
       {type: 'heading', defaultValue: 'About'},
       {type: 'text', defaultValue:
-       '<p>AstroSlop 0.0.1. Minor-planet elements cover 2026-2036.</p>' +
+       '<p>Astronomy Tools 0.0.1. Minor-planet elements cover 2026-2036.</p>' +
        '<p>Algorithms: Meeus; VSOP87/IMCCE; NASA/JPL Horizons and SBDB. ' +
        'Icons: Pebble iconography, Apache-2.0.</p><ul>' + credits + '</ul>' +
        '<p>Catalog data are for personal and scientific use only; review each ' +
