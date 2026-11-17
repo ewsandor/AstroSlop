@@ -326,10 +326,16 @@ static void draw_banner(GContext *context, GRect bounds, const Layout *item) {
   draw_text(context, primary, primary_font,
             GRect(side, id_y, width - 2 * side, 50), GTextAlignmentCenter);
   if (item->round && small) id_y -= 4;
+  int secondary_y = id_y + 52;
   graphics_draw_text(context, secondary,
     fonts_get_system_font(width >= 200 ? FONT_KEY_GOTHIC_28_BOLD : FONT_KEY_GOTHIC_24_BOLD),
-    GRect(side, id_y + 52, width - 2 * side, 70),
+    GRect(side, secondary_y, width - 2 * side, 70),
     GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+  if (width >= 200 && height >= 220 && s_screen->banner_coordinates[0]) {
+    draw_text(context, s_screen->banner_coordinates, FONT_KEY_GOTHIC_24,
+              GRect(side, secondary_y + 72, width - 2 * side, 30),
+              GTextAlignmentCenter);
+  }
 }
 
 static void canvas_update(Layer *layer, GContext *context) {

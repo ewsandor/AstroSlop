@@ -29,6 +29,7 @@ typedef struct {
   const char *banner_catalog;
   const char *banner_id;
   const char *banner_name;
+  char banner_coordinates[32];
   uint16_t banner_index;
   uint16_t banner_count;
 } ScreenState;

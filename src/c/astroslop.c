@@ -143,6 +143,15 @@ static void format_angle(char *buffer, size_t size, double angle, bool azimuth) 
            rounded / scale, s_settings.precise ? 2 : 1, rounded % scale);
 }
 
+static void format_banner_coordinates(char *buffer, size_t size,
+                                      const AstroHorizontal *horizontal) {
+  long azimuth = lround(horizontal->azimuth_deg) % 360;
+  if (azimuth < 0) azimuth += 360;
+  long elevation = lround(horizontal->elevation_deg);
+  snprintf(buffer, size, "%s %ld" DEG "  %s %ld" DEG,
+           l10n(STR_AZ), azimuth, l10n(STR_EL), elevation);
+}
+
 static void format_magnitude(char *buffer, size_t size, double magnitude) {
   long rounded = lround(magnitude * 10);
   bool negative = rounded < 0;
@@ -371,6 +380,10 @@ static void update_display(void) {
     s_screen.banner_name = s_object.name;
     s_screen.banner_index = s_object_index + 1;
     s_screen.banner_count = s_catalog.count;
+    if (!s_screen.no_coordinates) {
+      format_banner_coordinates(s_screen.banner_coordinates,
+                                sizeof(s_screen.banner_coordinates), &s_horizontal);
+    }
   }
   ui_update(&s_screen);
 }
