@@ -68,6 +68,7 @@
       "media": [
         {"type": "raw", "name": "CATALOG_PACK", "file": "generated/catalogs.bin"},
         {"type": "raw", "name": "EPHEMERIS_PACK", "file": "generated/ephemeris.bin"},
+        {"type": "bitmap", "name": "APP_ICON", "file": "icons/app_icon.png", "menuIcon": true},
         {"type": "bitmap", "name": "ICON_LOCATION_25", "file": "icons/location_25.png", "spaceOptimization": "memory"},
         {"type": "bitmap", "name": "ICON_LOCATION_18", "file": "icons/location_18.png", "spaceOptimization": "memory"},
         {"type": "bitmap", "name": "ICON_LOCATION_PROBLEM_25", "file": "icons/location_problem_25.png", "spaceOptimization": "memory"},
