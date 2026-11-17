@@ -332,7 +332,10 @@ static void draw_banner(GContext *context, GRect bounds, const Layout *item) {
     GRect(side, secondary_y, width - 2 * side, 70),
     GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
   if (width >= 200 && height >= 220 && s_screen->banner_coordinates[0]) {
-    draw_text(context, s_screen->banner_coordinates, FONT_KEY_GOTHIC_24,
+    const char *preview_fonts[] = {FONT_KEY_GOTHIC_18, FONT_KEY_GOTHIC_14};
+    const char *preview_font = fit_font(s_screen->banner_coordinates, width - 2 * side,
+                                        preview_fonts, ARRAY_LENGTH(preview_fonts));
+    draw_text(context, s_screen->banner_coordinates, preview_font,
               GRect(side, secondary_y + 72, width - 2 * side, 30),
               GTextAlignmentCenter);
   }

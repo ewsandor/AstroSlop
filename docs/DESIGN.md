@@ -1068,7 +1068,7 @@ the object where the user left each catalog.
 | Top | Catalog title (left); position in the catalog, e.g. `31 / 110` (right) | Gothic 18 Bold |
 | Middle | Catalog ID, or object name if there is no ID | Largest fitted font, beginning with Bitham 42 Bold |
 | Bottom | Common name where present; may wrap or truncate | Fitted Gothic font |
-| Preview (emery and gabbro only) | Whole-degree azimuth and elevation, e.g. `AZ 123°  EL -4°`; hidden when current coordinates are unavailable | Gothic 24 |
+| Preview (emery and gabbro only) | Whole-degree azimuth and elevation, plus magnitude when enabled and known, e.g. `AZ 123°  EL -4°  MAG 5.2`; hidden when current coordinates are unavailable | Fitted Gothic 18 or 14 |
 
 * The banner is shown for 1.5 s after the object or catalog changes, then dismissed by a timer.
 * The title and object ordinal appear at the top; the selected object's ID (or name when it has no
@@ -1076,8 +1076,9 @@ the object where the user left each catalog.
   according to the screen shape.
 * On emery and gabbro, a small centered AZ/EL preview appears immediately below the common name when
   current horizontal coordinates are available. It rounds to whole degrees and does not change the
-  main screen's precision setting. Other devices omit this line to preserve banner spacing; missing
-  coordinates simply hide the preview without adding a warning.
+  main screen's precision setting. When "Show magnitude" is enabled and a magnitude is known, the
+  same line also shows it to one decimal place. Other devices omit this line to preserve banner
+  spacing; missing coordinates simply hide the preview without adding a warning.
 * The same canvas shows short confirmations such as "Updating location...", "Flashlight on" and
   "Flashlight off".
 * The object/catalog banner can be turned off in settings (UX-7). The short confirmations are always

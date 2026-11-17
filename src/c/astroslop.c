@@ -159,6 +159,14 @@ static void format_magnitude(char *buffer, size_t size, double magnitude) {
   snprintf(buffer, size, "%s%ld.%ld", negative ? "-" : "", rounded / 10, rounded % 10);
 }
 
+static void append_banner_magnitude(char *buffer, size_t size, double magnitude) {
+  char formatted[16];
+  size_t length = strlen(buffer);
+  if (length >= size) return;
+  format_magnitude(formatted, sizeof(formatted), magnitude);
+  snprintf(buffer + length, size - length, "  MAG %s", formatted);
+}
+
 static unsigned position_validity(const CatalogObject *object) {
   if (s_catalog.provider == CATALOG_FIXED) return 3600;
   return object->body_kind == ASTRO_MOON ? 10 : 60;
@@ -383,6 +391,12 @@ static void update_display(void) {
     if (!s_screen.no_coordinates) {
       format_banner_coordinates(s_screen.banner_coordinates,
                                 sizeof(s_screen.banner_coordinates), &s_horizontal);
+      if (s_settings.show_magnitude && s_current.valid &&
+          s_current.position.magnitude_known) {
+        append_banner_magnitude(s_screen.banner_coordinates,
+                                sizeof(s_screen.banner_coordinates),
+                                s_current.position.magnitude);
+      }
     }
   }
   ui_update(&s_screen);
