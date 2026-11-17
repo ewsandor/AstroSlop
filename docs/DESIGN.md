@@ -1006,9 +1006,10 @@ needs no network access.
 * **Minimum elevation** (default **On, 0° = the horizon**, range −10°…+60°) and **minimum
   brightness, i.e. faintest magnitude** (default **Off**, range −2…+15).
 * Because the elevation filter is on by default, it is the first item on the settings page.
-  At any configured elevation threshold, the first successful search in each app session that
-  skips an object for elevation shows "Objects filtered / Settings in phone app" for
-  four seconds. The notice can be replaced sooner by another action.
+  At any configured elevation threshold, the first successful search after installation that
+  skips an object for elevation shows "Objects filtered / Phone app settings / Scroll to continue".
+  The notice remains until the user scrolls up or down. Acknowledgement is saved across app
+  launches; if the app exits before acknowledgement, the notice reappears on launch.
 * Filters apply only **while cycling**. The currently selected object is never hidden or switched
   automatically while the user is looking at it.
 * Objects without a magnitude (constellations) always pass the magnitude filter.

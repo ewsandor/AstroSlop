@@ -16,11 +16,11 @@
 
 #define DEG "\xc2\xb0"
 #define ACTIVE_CATALOG_KEY 10
+#define FILTER_NOTICE_ACK_KEY 11
 #define CATALOG_SELECTION_KEY 100
 #define SOLAR_CACHE_SIZE 14
 #define BANNER_MS 1500
 #define NOTICE_MS 1000
-#define FILTER_NOTICE_MS 4000
 
 typedef struct {
   bool valid;
@@ -86,7 +86,8 @@ static AppTimer *s_flashlight_timer;
 static AppTimer *s_save_timer;
 static bool s_banner_active;
 static bool s_selection_after_banner;
-static bool s_skipped_notice_shown;
+static bool s_filter_notice_acknowledged;
+static bool s_filter_notice_active;
 static bool s_flashlight_on;
 static char s_banner_message[80];
 static bool s_weather_valid;
@@ -401,12 +402,13 @@ static void banner_finished(void *context) {
   }
 }
 
-static void start_banner_for(const char *message, bool selection_after, uint32_t duration_ms) {
+static void start_banner(const char *message, bool selection_after) {
+  if (s_filter_notice_active) return;
   cancel_timer(&s_banner_timer);
   snprintf(s_banner_message, sizeof(s_banner_message), "%s", message ? message : "");
   s_banner_active = true;
   s_selection_after_banner = selection_after && s_settings.banner;
-  s_banner_timer = app_timer_register(duration_ms, banner_finished, NULL);
+  s_banner_timer = app_timer_register(message ? NOTICE_MS : BANNER_MS, banner_finished, NULL);
   if (!s_banner_timer) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule banner dismissal");
     s_banner_active = false;
@@ -415,11 +417,8 @@ static void start_banner_for(const char *message, bool selection_after, uint32_t
   update_display();
 }
 
-static void start_banner(const char *message, bool selection_after) {
-  start_banner_for(message, selection_after, message ? NOTICE_MS : BANNER_MS);
-}
-
 static void show_selection_banner(void) {
+  if (s_filter_notice_active) return;
   if (s_settings.banner && s_object_valid) start_banner(NULL, false);
   else {
     cancel_timer(&s_banner_timer);
@@ -427,6 +426,15 @@ static void show_selection_banner(void) {
     s_selection_after_banner = false;
     update_display();
   }
+}
+
+static void show_filter_notice(void) {
+  cancel_timer(&s_banner_timer);
+  snprintf(s_banner_message, sizeof(s_banner_message), "%s", l10n(STR_OBJECTS_FILTERED));
+  s_selection_after_banner = false;
+  s_banner_active = true;
+  s_filter_notice_active = true;
+  update_display();
 }
 
 static void save_selection(void *context) {
@@ -513,9 +521,11 @@ static SearchStatus find_object(const Catalog *catalog, uint16_t start, int dire
 static void show_filter_banner(FilterNotices notices) {
   if (notices.ignored_elevation) {
     start_banner(l10n(STR_FILTER_NEEDS_LOCATION), true);
-  } else if (notices.skipped_elevation && !s_skipped_notice_shown) {
-    s_skipped_notice_shown = true;
-    start_banner_for(l10n(STR_OBJECTS_FILTERED), true, FILTER_NOTICE_MS);
+  } else if (notices.skipped_elevation && !s_filter_notice_acknowledged) {
+    if (persist_write_bool(FILTER_NOTICE_ACK_KEY, false) < 0) {
+      APP_LOG(APP_LOG_LEVEL_ERROR, "Could not save pending filter notice");
+    }
+    show_filter_notice();
   } else {
     show_selection_banner();
   }
@@ -566,7 +576,18 @@ static SearchStatus select_catalog(uint8_t catalog_index, bool filter_new,
 }
 
 static void cycle_object(int direction) {
-  if (!s_object_valid) return;
+  if (s_filter_notice_active) {
+    s_filter_notice_active = false;
+    s_filter_notice_acknowledged = true;
+    s_banner_active = false;
+    if (persist_write_bool(FILTER_NOTICE_ACK_KEY, true) < 0) {
+      APP_LOG(APP_LOG_LEVEL_ERROR, "Could not save filter notice acknowledgement");
+    }
+  }
+  if (!s_object_valid) {
+    update_display();
+    return;
+  }
   ObjectSearch selection = {0};
   SearchStatus status = find_object(&s_catalog, s_object_index, direction, false, &selection);
   if (status != SEARCH_MATCH) {
@@ -632,6 +653,7 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
 
 static void select_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
+  if (s_filter_notice_active) return;
   if (!s_catalogs_ready) return;
   cancel_timer(&s_save_timer);
   save_selection(NULL);
@@ -766,6 +788,8 @@ static void init(void) {
     APP_LOG(APP_LOG_LEVEL_WARNING, "Could not initialize system locale");
   }
   settings_load(&s_settings);
+  bool filter_notice_saved = persist_exists(FILTER_NOTICE_ACK_KEY);
+  s_filter_notice_acknowledged = filter_notice_saved && persist_read_bool(FILTER_NOTICE_ACK_KEY);
   apply_backlight();
   s_catalogs_ready = catalog_init();
   ResHandle ephemeris_resource = resource_get_handle(RESOURCE_ID_EPHEMERIS_PACK);
@@ -794,7 +818,8 @@ static void init(void) {
   configure_tick();
   calculate_position(true);
   schedule_event();
-  update_display();
+  if (filter_notice_saved && !s_filter_notice_acknowledged) show_filter_notice();
+  else update_display();
   APP_LOG(APP_LOG_LEVEL_INFO, "AstroSlop started; free heap: %lu bytes",
           (unsigned long)heap_bytes_free());
 }
