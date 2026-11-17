@@ -208,14 +208,14 @@ change the required emery, flint or gabbro targets.
 
 * Only **emery** has an RGB backlight (`PBL_RGB_BACKLIGHT`). The other models have white LEDs, so a
   red tint is not possible on them.
-* The Light API (`light_enable_interaction`, `light_enable`, `light_set_color_rgb888`,
-  `light_set_system_color`) has **no brightness control and cannot suppress the backlight**. On
-  white-LED models only the system settings can disable or dim it.
+* The Light API has no brightness control, but `light_enable_interaction()` can suppress
+  interaction-triggered backlighting while the app is active. The app restores normal interaction
+  backlighting when it exits. On white-LED models the system settings remain the only way to dim it.
 * On emery the tint is **Red** (default) or **System**. The tint code is compiled only for `PBL_RGB_BACKLIGHT`, and the settings
   page shows the tint only for emery.
 * The flashlight (§6.8) uses `light_enable()` with an `AppTimer` and works on every platform. On
   non-emery models it is white, which affects dark adaptation, so it is disabled by default there.
-  The app always calls `light_enable(false)` when it exits.
+  The flashlight remains available even when interaction-triggered backlighting is disabled.
 
 ### 3.4 Time source (TIM-1)
 
@@ -1165,18 +1165,21 @@ tick. That keeps the digit size stable while values change.
 |---|---|---|---|
 | Colors | Black on white / White on black | Black on white | all |
 | Backlight tint | Red / System default | **Red** | **emery only** (compiled out elsewhere) |
+| Disable automatic backlight | On / Off | **On** (white backlight); **Off** (emery) | all |
 | Flashlight (long-press Select) | Enabled / Disabled | **Enabled on emery; Disabled on all others** | all |
 | Flashlight duration | 1 / 2 / 5 / 10 min | **5 min** | all |
 
 On color displays the themes use pure `GColorBlack` and `GColorWhite` for maximum contrast. The
-per-platform flashlight default is set in two places: in C (`settings_defaults()`, using
-`#if defined(PBL_RGB_BACKLIGHT)`), and on the settings page (from the platform that PKJS reports via
+Per-platform backlight and flashlight defaults are set in two places: in C (`settings_defaults()`,
+using `#if defined(PBL_RGB_BACKLIGHT)`), and in PKJS (from the platform reported by
 `Pebble.getActiveWatchInfo()`), so the watch and the phone always agree.
 
-**When the flashlight is off, the app does not touch the backlight at all.** The normal PebbleOS
-behavior stays in control (a button press or wrist flick lights it for the system timeout, subject to
-the user's system backlight settings). On emery only the tint is applied, so those normal backlight
-events light up red.
+The "Disable automatic backlight" setting disables PebbleOS backlight triggers from button presses
+and wrist raises while the app is active. It defaults on for white-backlight devices to help preserve
+night vision, and off on emery, whose RGB backlight is red by default. The setting is applied by
+`light_enable_interaction()` and normal interaction lighting is restored when the app exits. The
+explicit flashlight remains available regardless of this setting. On emery, automatic lighting uses
+the configured tint.
 
 ### 9.9 Button mapping (UX-6, UX-11, LOC-6)
 
@@ -1260,6 +1263,7 @@ remain in `localStorage`; watch-relevant settings are also persisted by the C ap
 | | Colors | select: Black on white / White on black | Black on white |
 | | Refresh rate | select: 1 s / 5 s / 15 s / 1 min | 1 s |
 | **Backlight** | Tint (emery only; hidden on other models) | select: Red / System | Red |
+| | Disable automatic backlight | toggle | **on (white-backlight devices) / off (emery)** |
 | | Flashlight on long-press Select | toggle (a note on non-emery models: "White light — may affect night vision") | **on (emery) / off (others)** |
 | | Flashlight duration (long-press Select again to turn off early) | select: 1 / 2 / 5 / 10 min | 5 min |
 | **Location** | Use manual location | toggle | **off** (use GPS) |
@@ -1294,7 +1298,7 @@ button.
 | | `WX_TEMP_UNIT` | uint8 | Display unit: 0 = °C, 1 = °F (the user's weather unit in the Pebble mobile app) |
 | | `WX_EXPIRES` | uint32 | UTC seconds after which the reading is dropped: the update's `validUntilMs`, else receipt + 3 h |
 | | `WX_CLEAR` | uint8 | Clear the current weather reading |
-| phone → watch (settings page via PKJS) | `CFG_*` | ints | One per watch-relevant setting in §10.1 (including `CFG_FLASHLIGHT_ENABLED`, `CFG_FLASHLIGHT_MIN`) |
+| phone → watch (settings page via PKJS) | `CFG_*` | ints | One per watch-relevant setting in §10.1 (including `CFG_DISABLE_BACKLIGHT`, `CFG_FLASHLIGHT_ENABLED`, `CFG_FLASHLIGHT_MIN`) |
 
 The inbox and outbox are opened with 512 and 64 bytes, respectively.
 
@@ -1302,7 +1306,7 @@ The inbox and outbox are opened with 512 and 64 bytes, respectively.
 
 | Key | Content | Notes |
 |---|---|---|
-| 1 `SETTINGS` | `Settings` struct with version 1 | Invalid size/version/value → log a warning and use defaults (per-platform flashlight default); no migration is implemented |
+| 1 `SETTINGS` | `Settings` struct with version 2 | Invalid size/version/value → log a warning and use defaults (per-platform backlight and flashlight defaults); no migration is implemented |
 | 2 `LOCATION` | lat/lon ×10⁶, alt, source, UTC timestamp of the fix | Used at launch (marked stale until refreshed) |
 | 10 `ACTIVE_CATALOG` | Active catalog index | Written with the selection |
 | 100 + catalog index `SELECTION` | Last object index in that catalog | Debounced write after selection change and flush on exit |

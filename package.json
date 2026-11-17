@@ -61,6 +61,7 @@
       "CFG_MAX_MAG",
       "CFG_REFRACTION",
       "CFG_TINT",
+      "CFG_DISABLE_BACKLIGHT",
       "CFG_FLASHLIGHT_ENABLED",
       "CFG_FLASHLIGHT_MIN"
     ],

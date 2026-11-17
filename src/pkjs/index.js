@@ -15,6 +15,7 @@ var WATCH_KEYS = {
   minElevationEnabled: 'CFG_MIN_ELEV_ENABLED', minElevation: 'CFG_MIN_ELEV',
   maxMagnitudeEnabled: 'CFG_MAX_MAG_ENABLED', maxMagnitude: 'CFG_MAX_MAG',
   refraction: 'CFG_REFRACTION', redTint: 'CFG_TINT',
+  disableBacklight: 'CFG_DISABLE_BACKLIGHT',
   flashlightEnabled: 'CFG_FLASHLIGHT_ENABLED', flashlightMinutes: 'CFG_FLASHLIGHT_MIN'
 };
 var PHONE_KEYS = {manual: 'MANUAL', latitude: 'LATITUDE', longitude: 'LONGITUDE', elevation: 'ELEVATION'};
@@ -22,6 +23,7 @@ var LOCATION_SETTINGS = ['latitude', 'longitude', 'elevation'];
 var BOOLEAN_SETTINGS = [
   'showTime', 'showEvent', 'showMagnitude', 'useWeather', 'precision', 'banner',
   'inverted', 'minElevationEnabled', 'maxMagnitudeEnabled', 'refraction', 'redTint',
+  'disableBacklight',
   'flashlightEnabled', 'manual'
 ];
 var ALLOWED = {
@@ -44,7 +46,8 @@ function defaults() {
     labelMode: 2, showTime: 1, showEvent: 1, showMagnitude: 1, useWeather: 0,
     precision: 0, banner: 1, inverted: 0, refresh: 1,
     minElevationEnabled: 1, minElevation: 0, maxMagnitudeEnabled: 0, maxMagnitude: 8,
-    refraction: 1, redTint: 1, flashlightEnabled: platform === 'emery' ? 1 : 0,
+    refraction: 1, redTint: 1, disableBacklight: platform === 'emery' ? 0 : 1,
+    flashlightEnabled: platform === 'emery' ? 1 : 0,
     flashlightMinutes: 5, manual: 0, latitude: 51.4778, longitude: -0.0015, elevation: 46
   };
 }

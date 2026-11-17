@@ -59,6 +59,9 @@ module.exports = function(page) {
       {type: 'heading', defaultValue: 'Backlight'},
       {type: 'toggle', messageKey: 'CFG_TINT', label: 'Red backlight',
        capabilities: ['PLATFORM_EMERY']},
+      toggle('CFG_DISABLE_BACKLIGHT', 'Disable automatic backlight',
+             'Prevents button presses and wrist raises from turning on the backlight while this ' +
+             'app is open. The flashlight remains available.'),
       toggle('CFG_FLASHLIGHT_ENABLED', 'Flashlight on long-press Select',
              'Hold Select to turn on; hold again to turn off.'),
       {type: 'text', capabilities: ['NOT_PLATFORM_EMERY'],

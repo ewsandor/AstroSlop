@@ -3,7 +3,7 @@
 #include <string.h>
 
 #define SETTINGS_KEY 1
-#define SETTINGS_VERSION 1
+#define SETTINGS_VERSION 2
 
 static Settings defaults(void) {
   Settings settings = {
@@ -24,8 +24,10 @@ static Settings defaults(void) {
     .refraction = true,
     .red_tint = true,
 #if defined(PBL_RGB_BACKLIGHT)
+    .disable_backlight = false,
     .flashlight_enabled = true,
 #else
+    .disable_backlight = true,
     .flashlight_enabled = false,
 #endif
     .flashlight_minutes = 5,
@@ -44,6 +46,7 @@ static bool valid(const Settings *settings) {
     settings->min_elevation <= 60 && settings->max_magnitude_enabled <= 1 &&
     settings->max_magnitude >= -2 && settings->max_magnitude <= 15 &&
     settings->refraction <= 1 && settings->red_tint <= 1 &&
+    settings->disable_backlight <= 1 &&
     settings->flashlight_enabled <= 1 &&
     (settings->flashlight_minutes == 1 || settings->flashlight_minutes == 2 ||
      settings->flashlight_minutes == 5 || settings->flashlight_minutes == 10);
@@ -93,6 +96,7 @@ bool settings_apply(Settings *settings, DictionaryIterator *iterator) {
   APPLY(CFG_MAX_MAG, max_magnitude, -2, 15);
   APPLY(CFG_REFRACTION, refraction, 0, 1);
   APPLY(CFG_TINT, red_tint, 0, 1);
+  APPLY(CFG_DISABLE_BACKLIGHT, disable_backlight, 0, 1);
   APPLY(CFG_FLASHLIGHT_ENABLED, flashlight_enabled, 0, 1);
   APPLY(CFG_FLASHLIGHT_MIN, flashlight_minutes, 1, 10);
 #undef APPLY

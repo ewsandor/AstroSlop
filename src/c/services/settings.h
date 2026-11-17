@@ -19,6 +19,7 @@ typedef struct {
   int8_t max_magnitude;
   uint8_t refraction;
   uint8_t red_tint;
+  uint8_t disable_backlight;
   uint8_t flashlight_enabled;
   uint8_t flashlight_minutes;
 } Settings;

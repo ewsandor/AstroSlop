@@ -579,6 +579,7 @@ static void flashlight_off(void *context) {
 }
 
 static void apply_backlight(void) {
+  light_enable_interaction(!s_settings.disable_backlight);
 #if defined(PBL_RGB_BACKLIGHT)
   if (s_settings.red_tint) light_set_color(GColorRed);
   else light_set_system_color();
@@ -802,6 +803,7 @@ static void deinit(void) {
   tick_timer_service_unsubscribe();
   connection_service_unsubscribe();
   app_message_deregister_callbacks();
+  light_enable_interaction(true);
 #if defined(PBL_RGB_BACKLIGHT)
   light_set_system_color();
 #endif

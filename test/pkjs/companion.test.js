@@ -63,6 +63,7 @@ async function main() {
                      context);
   listeners.ready({});
   assert.equal(sent[0].JS_READY, 1);
+  assert.equal(sent[1].CFG_DISABLE_BACKLIGHT, 0);
   assert.equal(sent[1].CFG_FLASHLIGHT_ENABLED, 1);
   listeners.appmessage({payload: {REQ_LOCATION: 2}});
   assert.equal(gps[0].options.maximumAge, 0);
@@ -87,6 +88,7 @@ async function main() {
   let shown = await open();
   assert.equal(opened.length, 1);
   assert.equal(shown.settings.CFG_MIN_ELEV, 0);
+  assert.equal(shown.settings.CFG_DISABLE_BACKLIGHT, false);
   assert.equal(shown.settings.CFG_SHOW_TIME, true);
   assert.equal(shown.settings.CFG_LABEL_MODE, '2');
   assert.equal(shown.settings.LATITUDE, '51.4778');
@@ -95,6 +97,7 @@ async function main() {
   assert.match(configText, /Test source/);
   assert.match(configText, /bending of light by the atmosphere/);
   assert.match(configText, /larger numbers are dimmer/);
+  assert.match(configText, /Disable automatic backlight/);
 
   let count = sent.length;
   await page({CFG_MIN_ELEV: 61, CFG_LABEL_MODE: '1', CFG_SHOW_TIME: true, LATITUDE: ''});
@@ -103,6 +106,8 @@ async function main() {
   count = sent.length;
   await page({CFG_LABEL_MODE: '1'});
   assert.equal(sent.length, count);
+  await page({CFG_DISABLE_BACKLIGHT: true});
+  assert.equal(sent.at(-1).CFG_DISABLE_BACKLIGHT, 1);
 
   await page({CFG_USE_WEATHER: true});
   assert.equal(subscriptions.length, 1);
@@ -146,6 +151,34 @@ async function main() {
   assert.equal(sent.at(-1).LOC_SOURCE, 1);
   await page({ELEVATION: '200'});
   assert.equal(sent.at(-1).LOC_ALT_M, 200);
+
+  for (const platform of ['basalt', 'flint', 'gabbro']) {
+    const platformListeners = {};
+    const platformSent = [];
+    class PlatformClay {
+      constructor() {}
+    }
+    const platformContext = {
+      console: {log() {}},
+      require(id) {
+        if (id === '@rebble/clay') return PlatformClay;
+        if (id === './config') return require(path.join(__dirname, '../../src/pkjs/config.js'));
+        assert.equal(id, '../../resources/generated/catalog_credits.json');
+        return [];
+      },
+      setTimeout,
+      localStorage: {getItem() { return null; }, setItem() {}},
+      Pebble: {
+        addEventListener(name, callback) { platformListeners[name] = callback; },
+        getActiveWatchInfo() { return {platform}; },
+        sendAppMessage(message, success) { platformSent.push(message); success(); }
+      }
+    };
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../src/pkjs/index.js'), 'utf8'),
+                       platformContext);
+    platformListeners.ready({});
+    assert.equal(platformSent[1].CFG_DISABLE_BACKLIGHT, 1, platform);
+  }
   console.log('PebbleKit JS companion tests passed');
 }
 
