@@ -1,0 +1,148 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12" # pebble-tool supports Python 3.10-3.13
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-2.0-0 libglib2.0-0 libpixman-1-0 zlib1g libsndio7.0
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install pebble tool
+        run: uv tool install pebble-tool
+
+      - name: Cache Pebble SDK
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pebble-sdk
+          key: pebble-sdk-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: pebble-sdk-${{ runner.os }}-
+
+      - name: Install Pebble SDK
+        run: pebble sdk install latest
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build
+        run: pebble build
+
+      - name: Read version
+        id: meta
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches package version
+        if: github.ref_type == 'tag'
+        run: |
+          if [ "${GITHUB_REF_NAME#v}" != "${{ steps.meta.outputs.version }}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json version ${{ steps.meta.outputs.version }}" >&2
+            exit 1
+          fi
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p dist
+          cp build/*.pbw "dist/astroslop-${{ steps.meta.outputs.version }}.pbw"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pbw
+          path: dist/*.pbw
+          if-no-files-found: error
+
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Host C tests
+        run: make -C test/astro
+      - name: Tool tests
+        run: python3 -m unittest discover -s test/tools -v
+      - name: Companion tests
+        run: node test/pkjs/companion.test.js
+
+
+  # The only job with contents: write; keeps a permanent copy of every released .pbw.
+  release:
+    if: github.ref_type == 'tag'
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pbw
+          path: dist
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.pbw
+          generate_release_notes: true
+
+  # Only this job can mint an appstore token; the build job above never gets id-token.
+  # The `appstore` environment should require manual approval and be limited to v* tags.
+  publish:
+    if: github.ref_type == 'tag'
+    needs: [build, test, release]
+    runs-on: ubuntu-latest
+    environment: appstore
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pbw
+          path: dist
+      - name: Publish release to the Pebble appstore
+        env:
+          APP_ID: ${{ vars.APPSTORE_APP_ID }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -n "$APP_ID" || { echo "Set the APPSTORE_APP_ID repository variable" >&2; exit 1; }
+          TOKEN=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://appstore-api.repebble.com" | jq -r .value)
+          echo "::add-mask::$TOKEN"
+          curl -fsS -H "Authorization: Bearer $TOKEN" \
+            --form-string "version=$VERSION" \
+            -F "pbwFile=@dist/astroslop-$VERSION.pbw" \
+            --form-string isPublished=true \
+            "https://appstore-api.repebble.com/api/dashboard/apps/$APP_ID/releases"
