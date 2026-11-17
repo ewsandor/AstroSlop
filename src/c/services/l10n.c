@@ -14,7 +14,8 @@ const char *l10n(StringId id) {
     [STR_LOCATION_DENIED] = "Location denied",
     [STR_CLOCK_UNSET] = "Clock not set",
     [STR_NO_MATCHES] = "No objects match filters",
-    [STR_OBJECTS_FILTERED] = "Objects filtered\nPhone app settings\nScroll to continue",
+    [STR_OBJECTS_FILTERED] = "Some catalog objects were filtered. Adjust filters in the Pebble app."
+                             "\n\nScroll to continue.",
     [STR_FILTER_NEEDS_LOCATION] = "Elevation filter needs location",
     [STR_UPDATING_LOCATION] = "Updating location...",
     [STR_ALTITUDE_UNKNOWN] = "GPS altitude unknown: using sea level",

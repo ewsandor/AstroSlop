@@ -25,6 +25,7 @@ typedef struct {
   char magnitude[16];
   char reason[40];
   bool banner;
+  bool filter_notice;
   const char *banner_message;
   const char *banner_catalog;
   const char *banner_id;

@@ -1007,7 +1007,8 @@ needs no network access.
   brightness, i.e. faintest magnitude** (default **Off**, range −2…+15).
 * Because the elevation filter is on by default, it is the first item on the settings page.
   At any configured elevation threshold, the first successful search after installation that
-  skips an object for elevation shows "Objects filtered / Phone app settings / Scroll to continue".
+  skips an object for elevation shows "Some catalog objects were filtered. Adjust filters in the
+  Pebble app." followed by "Scroll to continue."
   The notice remains until the user scrolls up or down, revealing the selected object without
   advancing again. Acknowledgement is saved across app
   launches; if the app exits before acknowledgement, the notice reappears on launch.

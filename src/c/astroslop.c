@@ -89,7 +89,7 @@ static bool s_selection_after_banner;
 static bool s_filter_notice_acknowledged;
 static bool s_filter_notice_active;
 static bool s_flashlight_on;
-static char s_banner_message[80];
+static char s_banner_message[128];
 static bool s_weather_valid;
 static int32_t s_temperature_dc;
 static uint8_t s_temperature_unit;
@@ -375,6 +375,7 @@ static void update_display(void) {
     format_magnitude(s_screen.magnitude, sizeof(s_screen.magnitude), s_current.position.magnitude);
   }
   s_screen.banner = s_banner_active;
+  s_screen.filter_notice = s_filter_notice_active;
   if (s_banner_active) {
     s_screen.banner_message = s_banner_message;
     s_screen.banner_catalog = s_catalog.title;
