@@ -40,13 +40,6 @@ jobs:
       - name: Install pebble tool
         run: uv tool install pebble-tool
 
-      - name: Cache Pebble SDK
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/share/pebble-sdk
-          key: pebble-sdk-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: pebble-sdk-${{ runner.os }}-
-
       - name: Install Pebble SDK
         run: pebble sdk install latest
 
