@@ -296,9 +296,16 @@ static void draw_banner(GContext *context, GRect bounds, const Layout *item) {
   int top = item->round ? (small ? 18 : 40) : 0;
   int side = item->round ? (small ? 24 : 36) : 4;
   if (s_screen->banner_message[0]) {
+    GRect message_rect = GRect(side, height / 2 - 32, width - 2 * side, 80);
+    GFont message_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+    GSize message_size = graphics_text_layout_get_content_size(s_screen->banner_message,
+      message_font, GRect(0, 0, message_rect.size.w, height),
+      GTextOverflowModeWordWrap, GTextAlignmentCenter);
+    if (message_size.h > message_rect.size.h) {
+      message_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+    }
     graphics_draw_text(context, s_screen->banner_message,
-      fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
-      GRect(side, height / 2 - 32, width - 2 * side, 80),
+      message_font, message_rect,
       GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
     return;
   }

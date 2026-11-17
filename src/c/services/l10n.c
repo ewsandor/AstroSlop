@@ -14,7 +14,7 @@ const char *l10n(StringId id) {
     [STR_LOCATION_DENIED] = "Location denied",
     [STR_CLOCK_UNSET] = "Clock not set",
     [STR_NO_MATCHES] = "No objects match filters",
-    [STR_BELOW_SKIPPED] = "Below horizon skipped",
+    [STR_OBJECTS_FILTERED] = "Objects filtered\nSettings in phone app",
     [STR_FILTER_NEEDS_LOCATION] = "Elevation filter needs location",
     [STR_UPDATING_LOCATION] = "Updating location...",
     [STR_ALTITUDE_UNKNOWN] = "GPS altitude unknown: using sea level",

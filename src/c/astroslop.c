@@ -20,6 +20,7 @@
 #define SOLAR_CACHE_SIZE 14
 #define BANNER_MS 1500
 #define NOTICE_MS 1000
+#define FILTER_NOTICE_MS 4000
 
 typedef struct {
   bool valid;
@@ -41,7 +42,7 @@ typedef struct {
 
 typedef struct {
   bool ignored_elevation;
-  bool skipped_below;
+  bool skipped_elevation;
 } FilterNotices;
 
 typedef struct {
@@ -400,18 +401,22 @@ static void banner_finished(void *context) {
   }
 }
 
-static void start_banner(const char *message, bool selection_after) {
+static void start_banner_for(const char *message, bool selection_after, uint32_t duration_ms) {
   cancel_timer(&s_banner_timer);
   snprintf(s_banner_message, sizeof(s_banner_message), "%s", message ? message : "");
   s_banner_active = true;
   s_selection_after_banner = selection_after && s_settings.banner;
-  s_banner_timer = app_timer_register(message ? NOTICE_MS : BANNER_MS, banner_finished, NULL);
+  s_banner_timer = app_timer_register(duration_ms, banner_finished, NULL);
   if (!s_banner_timer) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule banner dismissal");
     s_banner_active = false;
     s_selection_after_banner = false;
   }
   update_display();
+}
+
+static void start_banner(const char *message, bool selection_after) {
+  start_banner_for(message, selection_after, message ? NOTICE_MS : BANNER_MS);
 }
 
 static void show_selection_banner(void) {
@@ -447,7 +452,7 @@ static SearchStatus find_object(const Catalog *catalog, uint16_t start, int dire
   AstroObserver observer;
   bool has_location = location_observer(&observer) && clock_valid(now);
   result->notices.ignored_elevation = s_settings.min_elevation_enabled && !has_location;
-  result->notices.skipped_below = false;
+  result->notices.skipped_elevation = false;
   bool failed = false;
   uint16_t searched = 0;
   SearchStatus status = SEARCH_NO_MATCH;
@@ -482,7 +487,7 @@ static SearchStatus find_object(const Catalog *catalog, uint16_t start, int dire
         continue;
       }
       if (horizontal.elevation_deg < s_settings.min_elevation) {
-        if (s_settings.min_elevation == 0) result->notices.skipped_below = true;
+        result->notices.skipped_elevation = true;
         continue;
       }
     }
@@ -503,9 +508,9 @@ static SearchStatus find_object(const Catalog *catalog, uint16_t start, int dire
 static void show_filter_banner(FilterNotices notices) {
   if (notices.ignored_elevation) {
     start_banner(l10n(STR_FILTER_NEEDS_LOCATION), true);
-  } else if (notices.skipped_below && !s_skipped_notice_shown) {
+  } else if (notices.skipped_elevation && !s_skipped_notice_shown) {
     s_skipped_notice_shown = true;
-    start_banner(l10n(STR_BELOW_SKIPPED), true);
+    start_banner_for(l10n(STR_OBJECTS_FILTERED), true, FILTER_NOTICE_MS);
   } else {
     show_selection_banner();
   }
