@@ -32,12 +32,40 @@ double astro_tan(double angle);
 double astro_julian_tt(double jd_utc);
 double astro_gmst(double jd_utc);
 double astro_local_sidereal(double jd_utc, double longitude_deg);
+double astro_mean_obliquity(double jd_tt);
+#if defined(ASTRO_LOW_MEMORY)
+static inline void astro_nutation(double jd_tt, double *longitude, double *obliquity,
+                                  double *mean_obliquity) {
+  *longitude = 0;
+  *obliquity = 0;
+  *mean_obliquity = astro_mean_obliquity(jd_tt);
+}
+#else
 void astro_nutation(double jd_tt, double *longitude, double *obliquity,
                     double *mean_obliquity);
+#endif
 void astro_precess(double from_jd_tt, double to_jd_tt, AstroEquatorial *position);
 void astro_precess_j2000(double jd_tt, AstroEquatorial *position);
-void astro_apply_annual_aberration(double jd_tt, AstroEquatorial *position);
-void astro_apply_nutation(double jd_tt, AstroEquatorial *position);
+#if defined(ASTRO_LOW_MEMORY)
+static inline void astro_apply_apparent_corrections(double jd_tt,
+                                                     AstroEquatorial *position) {
+  (void)jd_tt;
+  (void)position;
+}
+static inline void astro_apply_ecliptic_aberration(double jd_tt, double *longitude,
+                                                    double *latitude, double distance_au,
+                                                    bool sun) {
+  (void)jd_tt;
+  (void)longitude;
+  (void)latitude;
+  (void)distance_au;
+  (void)sun;
+}
+#else
+void astro_apply_apparent_corrections(double jd_tt, AstroEquatorial *position);
+void astro_apply_ecliptic_aberration(double jd_tt, double *longitude, double *latitude,
+                                     double distance_au, bool sun);
+#endif
 bool astro_fixed_apparent(double jd_tt, double ra_deg, double dec_deg,
                           double pm_ra_mas, double pm_dec_mas,
                           AstroEquatorial *position);
