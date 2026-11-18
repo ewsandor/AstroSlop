@@ -50,10 +50,7 @@ module.exports = function(page) {
        options: options([[0, '0.1 degrees'], [1, '0.01 degrees']])},
       toggle('CFG_BANNER', 'Show object banner',
              'Briefly shows the object name or ID when you switch objects.'),
-      toggle('CFG_INVERT', 'Invert colors'),
-      {type: 'select', messageKey: 'CFG_REFRESH', label: 'Refresh interval',
-       description: 'Faster updates use more battery.',
-       options: options([[1, '1 second'], [5, '5 seconds'], [15, '15 seconds'], [60, '1 minute']])}
+      toggle('CFG_INVERT', 'Invert colors')
     ]},
     {type: 'section', items: [
       {type: 'heading', defaultValue: 'Backlight'},

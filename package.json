@@ -54,7 +54,6 @@
       "CFG_PRECISION",
       "CFG_BANNER",
       "CFG_INVERT",
-      "CFG_REFRESH",
       "CFG_MIN_ELEV_ENABLED",
       "CFG_MIN_ELEV",
       "CFG_MAX_MAG_ENABLED",

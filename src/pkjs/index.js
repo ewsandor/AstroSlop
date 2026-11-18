@@ -11,7 +11,7 @@ var WATCH_KEYS = {
   labelMode: 'CFG_LABEL_MODE', showTime: 'CFG_SHOW_TIME',
   showEvent: 'CFG_SHOW_EVENT', showMagnitude: 'CFG_SHOW_MAG',
   useWeather: 'CFG_USE_WEATHER', precision: 'CFG_PRECISION',
-  banner: 'CFG_BANNER', inverted: 'CFG_INVERT', refresh: 'CFG_REFRESH',
+  banner: 'CFG_BANNER', inverted: 'CFG_INVERT',
   minElevationEnabled: 'CFG_MIN_ELEV_ENABLED', minElevation: 'CFG_MIN_ELEV',
   maxMagnitudeEnabled: 'CFG_MAX_MAG_ENABLED', maxMagnitude: 'CFG_MAX_MAG',
   refraction: 'CFG_REFRACTION', redTint: 'CFG_TINT',
@@ -25,7 +25,7 @@ var BOOLEAN_SETTINGS = [
   'flashlightEnabled', 'manual'
 ];
 var ALLOWED = {
-  labelMode: [0, 1, 2], refresh: [1, 5, 15, 60], flashlightMinutes: [1, 2, 5, 10]
+  labelMode: [0, 1, 2], flashlightMinutes: [1, 2, 5, 10]
 };
 var RANGES = {
   minElevation: [-10, 60], maxMagnitude: [-2, 15],
@@ -42,7 +42,7 @@ var sending = false;
 function defaults() {
   return {
     labelMode: 2, showTime: 1, showEvent: 1, showMagnitude: 1, useWeather: 0,
-    precision: 0, banner: 1, inverted: 0, refresh: 1,
+    precision: 0, banner: 1, inverted: 0,
     minElevationEnabled: 1, minElevation: 0, maxMagnitudeEnabled: 0, maxMagnitude: 8,
     refraction: 1, redTint: 1, flashlightEnabled: platform === 'emery' ? 1 : 0,
     flashlightMinutes: 5, manual: 0, latitude: 51.4778, longitude: -0.0015, elevation: 46

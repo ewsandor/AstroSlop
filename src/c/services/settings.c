@@ -16,7 +16,7 @@ static Settings defaults(void) {
     .precise = false,
     .banner = true,
     .inverted = false,
-    .refresh_seconds = 1,
+    .reserved_refresh = 0,
     .min_elevation_enabled = true,
     .min_elevation = 0,
     .max_magnitude_enabled = false,
@@ -38,8 +38,6 @@ static bool valid(const Settings *settings) {
     settings->show_time <= 1 && settings->show_event <= 1 &&
     settings->show_magnitude <= 1 && settings->use_weather <= 1 &&
     settings->precise <= 1 && settings->banner <= 1 && settings->inverted <= 1 &&
-    (settings->refresh_seconds == 1 || settings->refresh_seconds == 5 ||
-     settings->refresh_seconds == 15 || settings->refresh_seconds == 60) &&
     settings->min_elevation_enabled <= 1 && settings->min_elevation >= -10 &&
     settings->min_elevation <= 60 && settings->max_magnitude_enabled <= 1 &&
     settings->max_magnitude >= -2 && settings->max_magnitude <= 15 &&
@@ -86,7 +84,6 @@ bool settings_apply(Settings *settings, DictionaryIterator *iterator) {
   APPLY(CFG_PRECISION, precise, 0, 1);
   APPLY(CFG_BANNER, banner, 0, 1);
   APPLY(CFG_INVERT, inverted, 0, 1);
-  APPLY(CFG_REFRESH, refresh_seconds, 1, 60);
   APPLY(CFG_MIN_ELEV_ENABLED, min_elevation_enabled, 0, 1);
   APPLY(CFG_MIN_ELEV, min_elevation, -10, 60);
   APPLY(CFG_MAX_MAG_ENABLED, max_magnitude_enabled, 0, 1);

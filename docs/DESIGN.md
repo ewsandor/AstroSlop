@@ -112,7 +112,7 @@ design intent is retained where it differs.
 | DSP-3 | Az/El is always displayed | ✅ | §9 |
 | DSP-4 | An error placeholder is shown when the value is unknown | ✅ `---.-°` | §9.7 |
 | DSP-5 | Configurable secondary fields: local time, object ID/name, only the next rise or set, magnitude and optional local temperature | ✅ abbreviated or omitted on smaller screens | §9 |
-| DSP-6 | Refresh every 1 s by default, configurable to at least 1 min | ✅ 1 s, 5 s, 15 s, 1 min | §10.1 |
+| DSP-6 | Refresh rate derived from the displayed precision and the object's apparent motion (1 s to 1 min); no user setting | ✅ | §6.2 |
 | DSP-7 | Measure azimuth clockwise from true North (0°) through East (90°) | ✅ | §1, §7.6 |
 | DSP-8 | Format local and rise/set times using the watch's 12/24-hour setting | ✅ | §9.6 |
 
@@ -491,18 +491,18 @@ sequenceDiagram
     M->>UI: render live Az/El
 ```
 
-### 6.2 Periodic tick (1 s by default)
+### 6.2 Adaptive refresh timer and minute tick
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant T as Pebble tick service
+    participant T as Pebble minute tick / refresh app_timer
     participant C as src/c/astroslop.c
     participant E as position cache and catalog API
     participant A as src/c/astro
     participant UI as main_window
 
-    T->>C: tick
+    T->>C: minute tick, or refresh timer
     C->>E: calculate selected object's apparent place if cache expired
     alt fixed object cache older than 3600 s, or solar cache older than 10/60 s
         E->>A: catalog_apparent / astro_ephemeris_position
@@ -516,7 +516,25 @@ sequenceDiagram
     end
     A-->>C: Az/El and next event
     C->>UI: ui_update - redraw custom canvas
+    C->>C: schedule next refresh timer
 ```
+
+Refresh interval (issue #16):
+
+* The guidance readout only has to stay within half a display step of the true value: 0.05° at
+  0.1° precision, 0.005° at 0.01°. Stars, planets and DSOs move at most about 0.25°/min (0.004°/s)
+  in alt/az, but azimuth speeds up as 1/cos(El) near the zenith.
+* Each recompute also evaluates the horizontal position at `now + 1 s` (positions are computed, not
+  measured, so there is no noise to filter) and takes the larger of the azimuth (wrapped) and
+  altitude change as the rate. The next `app_timer` fires after
+  `clamp(budget / rate, 1 s, 60 s)`, rounded down to whole seconds.
+* Typical results: about 12 s at 0.1° and 1 s at 0.01°; 1 s near the zenith. With no location the
+  interval is 60 s.
+* The OS `MINUTE_UNIT` tick refreshes the clock, weather expiry and rise/set checks, recomputes the
+  position and reschedules the timer, so nothing wakes every second. Selecting an object or
+  changing settings also recomputes and reschedules immediately.
+* The legacy `refresh_seconds` settings byte is kept as reserved and ignored. A future fast-moving
+  catalog (satellites, #17) will need a sub-second floor or per-object override.
 
 ### 6.3 Object and catalog navigation (with filters and banner)
 
@@ -616,7 +634,7 @@ sea level. There is no separate 12-hour "Old location" state.
 
 | State | Az/El | Status icon |
 |---|---|---|
-| MISSING / ACQUIRING (no fix) | `---.-°` | Location icon while requesting (blinks at 1 Hz for 1 s refresh); otherwise location problem. Rect screens show a short reason. |
+| MISSING / ACQUIRING (no fix) | `---.-°` | Location icon while requesting (shown steadily while requesting); otherwise location problem. Rect screens show a short reason. |
 | ACQUIRING with a persisted fix | live from saved fix | Location icon until a new fix arrives |
 | WARNING | live from saved fix | Warning icon; fix age > 75 min or GPS altitude unknown |
 | VALID | live | No location icon |
@@ -640,7 +658,7 @@ sequenceDiagram
     Page->>PKJS: webviewclosed with form response
     PKJS->>PKJS: validate and store in localStorage
     PKJS->>Watch: AppMessage with changed CFG keys
-    Watch->>Watch: settings_apply, persist, update tick/backlight/event state
+    Watch->>Watch: settings_apply, persist, update refresh/backlight/event state
     opt manual location turned on or edited
         PKJS->>Watch: LOCATION with manual coordinates
     end
@@ -700,14 +718,14 @@ Time arguments are **JD(UT)** for Earth rotation and **JDE(TT)** for ephemerides
 
 The expensive part, the apparent RA/Dec, changes slowly. The app coordinator caches the selected
 object's apparent position and uses a separate 14-entry solar-system cache. It recomputes
-horizontal coordinates at the configured refresh interval:
+horizontal coordinates at the adaptive refresh interval (§6.2):
 
 ```mermaid
 flowchart TB
     subgraph SLOW["Slow path - recomputed when stale"]
         S1["Catalog record: J2000 RA/Dec, proper motion<br/>or solar-system body"] --> S2["Geocentric apparent RA/Dec<br/>plus distance and magnitude"]
     end
-    subgraph FAST["Fast path - every refresh tick"]
+    subgraph FAST["Fast path - every refresh"]
         F1["UTC from the watch clock to JD of UT"] --> F2["GAST, Meeus 12"]
         F2 --> F3["LST = GAST + east longitude"]
         F3 --> F4["Hour angle H = LST - RA"]
@@ -1151,7 +1169,7 @@ tick. That keeps the digit size stable while values change.
 
 | 25 px | 18 px | Meaning | Source icon |
 |:---:|:---:|---|---|
-| ![location](images/icons/location_25.png) | ![location](images/icons/location_18.png) | Acquiring a location, or using the persisted fix until a fresh one arrives (blinks while there is no fix) | `icons/25px_Location` (Rebble) |
+| ![location](images/icons/location_25.png) | ![location](images/icons/location_18.png) | Acquiring a location, or using the persisted fix until a fresh one arrives (shown steadily while there is no fix) | `icons/25px_Location` (Rebble) |
 | ![location problem](images/icons/location_problem_25.png) | ![location problem](images/icons/location_problem_18.png) | No usable location: no fix, GPS error or permission denied | `icons/25px_Location_problem` (Rebble) |
 | ![alarm clock](images/icons/alarm_clock_25.png) | ![alarm clock](images/icons/alarm_clock_18.png) | Watch clock not set | `pebbleos/Pebble_25x25_Alarm_clock` |
 | ![warning](images/icons/warning_25.png) | ![warning](images/icons/warning_18.png) | Location is stale (> 75 min), GPS altitude is unknown, or position calculation is unavailable | `pebbleos/Pebble_25x25_Generic_warning` |
@@ -1259,7 +1277,6 @@ remain in `localStorage`; watch-relevant settings are also persisted by the C ap
 | | Coordinate precision | select: 0.1° / 0.01° | 0.1° |
 | | Show name banner when switching | toggle | on |
 | | Colors | select: Black on white / White on black | Black on white |
-| | Refresh rate | select: 1 s / 5 s / 15 s / 1 min | 1 s |
 | **Backlight** | Tint (emery only; hidden on other models) | select: Red / System | Red |
 | | Flashlight on long-press Select | toggle (a note on non-emery models: "White light — may affect night vision") | **on (emery) / off (others)** |
 | | Flashlight duration (long-press Select again to turn off early) | select: 1 / 2 / 5 / 10 min | 5 min |
@@ -1335,7 +1352,7 @@ replace testing on physical watches.
 
 | Operation | ≈ trig calls | Estimate | Frequency |
 |---|---|---|---|
-| Fast path (GAST, equ→hor, parallax, refraction) | ~15 | < 1 ms | every tick (1 s) |
+| Fast path (GAST, equ→hor, parallax, refraction) | ~15 | < 1 ms | every refresh (1–60 s) |
 | Star apparent place | ~40 | ~2 ms | hourly or on change |
 | Planet (Earth + planet VSOP87, light-time ×2) | ~600–800 | 30–40 ms | every 60 s or on change |
 | Moon (Ch. 47) | ~150 | ~8 ms | every 10 s |
@@ -1378,8 +1395,9 @@ firmware-specific. The 64 KB targets have a tight heap budget; further growth re
 
 * The app invalidates a custom canvas when its screen state changes; actual drawing cost has not
   been measured on physical hardware.
-* "1 minute" refresh subscribes to `MINUTE_UNIT`. The 5 s and 15 s options use `SECOND_UNIT` and
-  skip ticks (the work per skipped tick is a single comparison).
+* The app subscribes to `MINUTE_UNIT` only. Position updates use a single `app_timer` whose interval
+  adapts to the object's motion and the display precision (§6.2), typically about 12 s at 0.1°
+  and 1 s at 0.01° or near the zenith, instead of waking every second.
 * No background worker. Bluetooth is used about once an hour for location, plus for configuration
   and, when enabled, a message when the local temperature changes.
 * Location requests use `maximumAge` of 60 s, except forced (long-press Down) refreshes.
