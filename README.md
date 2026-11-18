@@ -59,6 +59,10 @@ They use the same scale; live values and text vary with the selected object.
 
 More platform and state mockups are in the [design document](docs/DESIGN.md#911-emulator-renderings).
 
+Native-resolution app store screenshots for each supported platform are in
+[assets/screenshots](assets/screenshots/). They show sample emulator positions;
+the Emery set also includes its red backlight.
+
 ## Theory of operation
 
 The watchapp uses the watch's system clock and a location from the Pebble
@@ -109,6 +113,15 @@ pebble build
 ```
 
 The package is written to `build/astroslop.pbw`.
+
+For a release, update the version in the manifest and lockfile together, without
+creating a Git tag:
+
+```sh
+npm version 0.1.1 --no-git-tag-version
+```
+
+The watch and settings About screens use the version from `package.json`.
 
 ### Install on a watch
 

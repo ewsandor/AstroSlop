@@ -1,6 +1,7 @@
 #include "l10n.h"
 
 #include "../../../resources/generated/catalog_credits.inc"
+#include "../../../resources/generated/app_version.inc"
 
 const char *l10n(StringId id) {
   static const char *const english[STR_COUNT] = {
@@ -29,7 +30,7 @@ const char *l10n(StringId id) {
     [STR_MAG_SHORT] = "mag",
     [STR_ABOUT_TITLE] = "About Astronomy Tools",
     [STR_ABOUT_BODY] =
-      "Astronomy Tools 0.0.1\nMinor planets:\n2026-2036\n\n"
+      "Astronomy Tools " APP_VERSION "\nMinor planets:\n2026-2036\n\n"
       "Algorithms: J. Meeus, Astronomical Algorithms; VSOP87, Bretagnon & Francou / IMCCE; "
       "Sonia Keys (MIT).\n\n"
       CATALOG_CREDITS
