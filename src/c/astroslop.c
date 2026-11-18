@@ -93,6 +93,14 @@ static AppTimer *s_flashlight_timer;
 static AppTimer *s_save_timer;
 static bool s_banner_active;
 static bool s_selection_after_banner;
+
+static bool precise_display(void) {
+#if defined(ASTRO_LOW_MEMORY)
+  return false;
+#else
+  return s_settings.precise;
+#endif
+}
 static bool s_filter_notice_acknowledged;
 static bool s_filter_notice_active;
 static bool s_flashlight_on;
@@ -141,7 +149,8 @@ static void format_time(char *buffer, size_t size, time_t value) {
 }
 
 static void format_angle(char *buffer, size_t size, double angle, bool azimuth) {
-  int scale = s_settings.precise ? 100 : 10;
+  bool precise = precise_display();
+  int scale = precise ? 100 : 10;
   long rounded = lround(angle * scale);
   if (azimuth) {
     rounded %= 360 * scale;
@@ -150,7 +159,7 @@ static void format_angle(char *buffer, size_t size, double angle, bool azimuth) 
   bool negative = rounded < 0;
   if (negative) rounded = -rounded;
   snprintf(buffer, size, "%s%ld.%0*ld" DEG, negative ? "-" : "",
-           rounded / scale, s_settings.precise ? 2 : 1, rounded % scale);
+           rounded / scale, precise ? 2 : 1, rounded % scale);
 }
 
 static void format_banner_coordinates(char *buffer, size_t size,
@@ -325,7 +334,7 @@ static void update_display(void) {
   time_t now = time(NULL);
   memset(&s_screen, 0, sizeof(s_screen));
   s_screen.inverted = s_settings.inverted;
-  s_screen.precise = s_settings.precise;
+  s_screen.precise = precise_display();
   s_screen.flashlight = s_flashlight_on;
   if (s_settings.show_time && clock_valid(now)) {
     format_time(s_screen.clock, sizeof(s_screen.clock), now);
@@ -379,15 +388,15 @@ static void update_display(void) {
       format_angle(s_screen.azimuth, sizeof(s_screen.azimuth), s_horizontal.azimuth_deg, true);
     } else {
       snprintf(s_screen.azimuth, sizeof(s_screen.azimuth), "---.%s" DEG,
-               s_settings.precise ? "--" : "-");
+               precise_display() ? "--" : "-");
       s_screen.icon = STATUS_ICON_WARNING;
     }
     format_angle(s_screen.elevation, sizeof(s_screen.elevation), s_horizontal.elevation_deg, false);
   } else {
     snprintf(s_screen.azimuth, sizeof(s_screen.azimuth), "---.%s" DEG,
-             s_settings.precise ? "--" : "-");
+             precise_display() ? "--" : "-");
     snprintf(s_screen.elevation, sizeof(s_screen.elevation), "---.%s" DEG,
-             s_settings.precise ? "--" : "-");
+             precise_display() ? "--" : "-");
   }
   if (!s_screen.no_coordinates && s_settings.show_event && s_event_valid) {
     if (s_event.kind == ASTRO_EVENT_RISE || s_event.kind == ASTRO_EVENT_SET) {
@@ -756,7 +765,7 @@ static void refresh_callback(void *context) {
 /* Keep the displayed value within half a display step of the true position. */
 static void schedule_refresh(void) {
   cancel_timer(&s_refresh_timer);
-  double budget_deg = s_settings.precise ? 0.005 : 0.05;
+  double budget_deg = precise_display() ? 0.005 : 0.05;
   uint32_t interval_ms = REFRESH_MAX_MS;
   if (s_rate_deg_s > 0) {
     double ms = budget_deg / s_rate_deg_s * 1000;

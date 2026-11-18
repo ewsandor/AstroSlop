@@ -48,7 +48,8 @@ module.exports = function(page) {
              'Uses temperature from the first location in the Pebble weather plugin for the ' +
              'status bar and refraction correction. Requires plugins to be enabled.'),
       {type: 'select', messageKey: 'CFG_PRECISION', label: 'Coordinate precision',
-       description: 'Changes displayed rounding only; it does not improve calculation accuracy.',
+       description: 'Changes displayed rounding only; it does not improve calculation accuracy. ' +
+         '64 KB watches display 0.1-degree precision.',
        options: options([[0, '0.1 degrees'], [1, '0.01 degrees']])},
       toggle('CFG_BANNER', 'Show object banner',
              'Briefly shows the object name or ID when you switch objects.'),
