@@ -786,7 +786,7 @@ Annual parallax (< 1″) and light deflection by the Sun are ignored.
 |---|---|---|---|
 | **Sun** | Earth's heliocentric L, B, R from VSOP87D, inverted, then FK5 correction, nutation and aberration (−20.4898″/R) | [Meeus Ch. 25 "higher accuracy", Ch. 32] | ~1″ |
 | **Mercury … Neptune** | VSOP87D heliocentric L, B, R for the planet and for Earth → geocentric rectangular, with **light-time iteration**, FK5 correction, nutation and aberration | [Meeus Ch. 32, 33]; Bretagnon & Francou (1988) | ≤ 5″ (truncation target 1″ heliocentric) |
-| **Moon** | Meeus Ch. 47: 60 longitude/radius terms and 60 latitude terms, plus A1–A3 additive terms and the E eccentricity factor; the coefficient tables are stored in `ephemeris.bin` and streamed in batches of at most four | [Meeus Ch. 47]; coefficient transcription from Sonia Keys' MIT-licensed `meeus` implementation | ~10″ in longitude, ~4″ in latitude |
+| **Moon** | Meeus Ch. 47: the first 54 of 60 longitude/radius terms and 54 of 60 latitude terms, plus A1–A3 additive terms and the E eccentricity factor; the coefficient tables are stored in `ephemeris.bin` and streamed in batches of at most four | [Meeus Ch. 47]; coefficient transcription from Sonia Keys' MIT-licensed `meeus` implementation | ~10″ in longitude, ~4″ in latitude; truncation adds less than 0.002° in apparent position |
 | **Pluto** | 43-term periodic series, heliocentric J2000 → geocentric with light-time, then precession to the date; coefficients are stored in `ephemeris.bin` and streamed in batches of at most four | [Meeus Ch. 37]; coefficient transcription from Sonia Keys' MIT-licensed `meeus` implementation | ~1″. **Valid 1885–2099 only**; outside that range calculation returns unavailable. |
 | **Vesta, Juno, Ceres, Pallas** | Two-body Kepler orbit from **JPL Horizons osculating elements** (epoch, a, e, i, Ω, ω, M), taken from a compile-time table with one element set **every 60 days for ~10 years** (2026–2036; the spacing is a build parameter). The set with the nearest epoch is used. Kepler's equation is solved by Newton iteration [Meeus Ch. 30], then J2000 ecliptic → equatorial, light-time, precession and nutation. | [Meeus Ch. 30, 33] | With at most 30 days from the epoch: about 1″–10″ (to be measured against Horizons). After the table ends, accuracy decays (see below). |
 
@@ -813,6 +813,41 @@ series. The estimate is about 1,000–1,500 terms in total, which is about 24–
 triples (A, B, C) in `resources/ephemeris.bin`. terms are **streamed** from the resource in batches of four into a stack buffer, so RAM use does
 not depend on series length. The current ephemeris resource also contains Moon and Pluto terms.
 Its exact format and size are documented in §8.3.
+
+**Moon-series truncation.** The same generator retains the first 54 rows of each Meeus Ch. 47
+Moon table on every platform; the version-2 resource header carries the resulting counts, which
+the runtime already uses for its streaming loops. The six-row suffix is omitted from both tables.
+Across 1900–2100, the omitted absolute coefficient sums are bounded by 0.001578° in longitude
+and 0.000805° in latitude after allowing for the largest E factor in that interval. Their
+root-sum-square bound is 0.001772°, below the 0.002° all-platform decision threshold. The omitted
+radius coefficient absolute sum is at most 9.923 km. Including the largest topocentric parallax
+amplification at lunar perigee gives a conservative apparent-position bound below 0.00184°. We
+retain all terms on no platform-specific path: the measured apparent-position error is well below
+the 0.01° display step, and this avoids introducing a second build variant or shared macro.
+
+The host regression compares the generated truncated resource with a full-series reference:
+daily ecliptic samples cover 1900–2100; daily apparent and topocentric samples cover 2026–2036
+at Greenwich and in Chile; next Moon rise/set events are compared every 30 days at both sites.
+The date ranges correspond to the precision interval used for the VSOP series and the minor-body
+element table, respectively. Max/RMS absolute differences were:
+
+| Output | Maximum | RMS |
+|---|---:|---:|
+| Ecliptic longitude | 0.001566° | 0.000498° |
+| Ecliptic latitude | 0.000724° | 0.000235° |
+| Geocentric distance | 9.920 km | 6.235 km |
+| Apparent position | 0.001488° | 0.000544° |
+| Topocentric pointing | 0.001498° | 0.000544° |
+| Topocentric altitude | 0.001412° | 0.000365° |
+| Topocentric azimuth, below 89° altitude | 0.007650° | 0.000603° |
+| Phase angle | 0.001490° | 0.000483° |
+| Illumination fraction | 0.0000128 | 0.0000030 |
+| Lunar magnitude | 0.000145 mag | 0.000044 mag |
+| Moon rise/set time | 0.49 s | 0.14 s |
+
+Azimuth is not compared near the zenith, where it is undefined/ill-conditioned. Rise/set sampling
+uses two non-polar sites; grazing events near a polar boundary have no finite universal timing
+bound. The sampled Moon phase and illumination changes are below watch display precision.
 
 ### 7.6 Equatorial → horizontal [Meeus Ch. 13]
 
@@ -984,12 +1019,13 @@ seven-double minor-body element records, then:
 
 | Table | Encoding | Rows | Bytes |
 |---|---|---:|---:|
-| Moon longitude and radius | `<bbbbii` | 60 | 720 |
-| Moon latitude | `<bbbbi` | 60 | 480 |
+| Moon longitude and radius | `<bbbbii` | 54 | 648 |
+| Moon latitude | `<bbbbi` | 54 | 432 |
 | Pluto | `<bbbx6d` (3 integer multipliers, padding, 6 doubles) | 43 | 2,236 |
 
 Moon and Pluto rows are read four at a time. The complete generated ephemeris resource is
-**109,240 bytes** in the current build; the four minor-body tables occupy 15,232 bytes. Both packs
+**109,120 bytes** in the current build, 120 bytes smaller than the full Moon-series resource;
+the four minor-body tables occupy 15,232 bytes. Both packs
 are read from Pebble resources on demand rather than copied wholesale into RAM.
 
 ### 8.4 Provider interface
@@ -1359,7 +1395,7 @@ replace testing on physical watches.
 | Fast path (GAST, equ→hor, parallax, refraction) | ~15 | < 1 ms | every refresh (1–60 s) |
 | Star apparent place | ~40 | ~2 ms | hourly or on change |
 | Planet (Earth + planet VSOP87, light-time ×2) | ~600–800 | 30–40 ms | every 60 s or on change |
-| Moon (Ch. 47) | ~150 | ~8 ms | every 10 s |
+| Moon (Ch. 47) | ~170 | ~8 ms | every 10 s |
 | Rise/set (moving body, iterative refinement or sampled fallback) | varies | not yet characterized on physical watches | on selection/location/settings change and at 10-minute intervals |
 
 Moving-body fallback position sampling is split across AppTimer callbacks; the final interpolation
@@ -1383,6 +1419,11 @@ the current clean build reports the following total footprint and remaining heap
 Catalog navigation uses shared scratch storage for its candidate and search result to avoid
 overflowing the small app stack during ephemeris calculations.
 
+Pebble SDK 4.44 linked `.text` sizes after this change were 58,904 B (basalt), 58,584 B
+(chalk), 58,904 B (diorite), 59,056 B (emery), 59,008 B (flint), and 59,016 B (gabbro).
+No production C source changed, so the Moon-table change has a measured `.text` delta of 0 B;
+the reduction is entirely in the generated resource.
+
 The Flint emulator logged **2,908 B free heap after startup**. The pre-resource-move baseline was
 2,016 B free at load and 820 B after startup; moving the Moon and Pluto tables from compiled C
 arrays into `ephemeris.bin` recovered about 2.9 KB at load. These measurements are build- and
@@ -1391,8 +1432,8 @@ firmware-specific. The 64 KB targets have a tight heap budget; further growth re
 | Resources | Measured size |
 |---|---|
 | `catalogs.bin` | 10,073 B |
-| `ephemeris.bin` (VSOP87D + Moon/Pluto coefficients + 4 × 68 minor-body records) | 109,240 B |
-| `app_resources.pbpack` (all registered app resources, including icons) | 124,331 B |
+| `ephemeris.bin` (VSOP87D + Moon/Pluto coefficients + 4 × 68 minor-body records) | 109,120 B |
+| `app_resources.pbpack` (all registered app resources, including icons; Pebble SDK 4.44) | 124,395 B |
 | Pebble resource limit | 256 KB |
 
 ### 12.3 Power

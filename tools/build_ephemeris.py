@@ -24,6 +24,7 @@ ELEMENTS = struct.Struct("<ddddddd")
 MOON_LONGITUDE = struct.Struct("<bbbbii")
 MOON_LATITUDE = struct.Struct("<bbbbi")
 PLUTO = struct.Struct("<bbbx6d")
+# The six-row suffix stays below the 0.002-degree apparent-position budget.
 MOON_TERM_COUNT = 54
 MEEUS_TABLES = (
     ("moon_longitude.csv", MOON_LONGITUDE, 4, 60),
@@ -155,8 +156,8 @@ def read_meeus(path, record, integer_columns, expected, max_terms=None):
                 raise ValueError(f"{path}: coefficient out of range") from exc
     if len(rows) != expected:
         raise ValueError(f"{path}: expected {expected} terms, got {len(rows)}")
-    if max_terms is not None and not 0 <= max_terms <= expected:
-        raise ValueError(f"{path}: term limit must be between 0 and {expected}")
+    if max_terms is not None and not 1 <= max_terms <= expected:
+        raise ValueError(f"{path}: term limit must be between 1 and {expected}")
     return rows if max_terms is None else rows[:max_terms]
 
 
@@ -200,7 +201,8 @@ def build(data_path, output_path, full_moon_series=False):
     if not full_moon_series:
         print(f"Moon: {meeus_counts[0]} longitude/radius and "
               f"{meeus_counts[1]} latitude terms "
-              f"({60 - meeus_counts[0]} dropped from each table)", flush=True)
+              f"({MEEUS_TABLES[0][3] - meeus_counts[0]} dropped from each table)",
+              flush=True)
     header = HEADER.pack(b"ASEP", FORMAT_VERSION, len(PLANETS), 3, 6, len(MINORS), count,
                          step, 0, first, HEADER.size, minor_offset, meeus_offset,
                          *meeus_counts, 0)

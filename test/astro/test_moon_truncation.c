@@ -57,6 +57,15 @@ static double clamp_unit(double value) {
   return fmax(-1, fmin(1, value));
 }
 
+static double horizontal_separation(AstroHorizontal a, AstroHorizontal b) {
+  double altitude_a = a.elevation_deg * ASTRO_DEG;
+  double altitude_b = b.elevation_deg * ASTRO_DEG;
+  double azimuth_delta = remainder(a.azimuth_deg - b.azimuth_deg, 360) * ASTRO_DEG;
+  double cosine = sin(altitude_a) * sin(altitude_b) +
+    cos(altitude_a) * cos(altitude_b) * cos(azimuth_delta);
+  return acos(clamp_unit(cosine)) / ASTRO_DEG;
+}
+
 static double illumination(AstroEquatorial moon, AstroEquatorial sun, double *phase_deg) {
   double cos_elongation = sin(moon.dec) * sin(sun.dec) +
     cos(moon.dec) * cos(sun.dec) * cos(moon.ra - sun.ra);
@@ -114,8 +123,12 @@ int main(int argc, char **argv) {
   assert(argc == 3);
   TestEphemeris truncated = open_ephemeris(argv[1]);
   TestEphemeris full = open_ephemeris(argv[2]);
+  assert(truncated.ephemeris.moon_longitude_count == 54);
+  assert(truncated.ephemeris.moon_latitude_count == 54);
+  assert(full.ephemeris.moon_longitude_count == 60);
+  assert(full.ephemeris.moon_latitude_count == 60);
   ErrorStats longitude = {0}, latitude = {0}, distance = {0};
-  ErrorStats apparent = {0}, altitude = {0}, azimuth = {0};
+  ErrorStats apparent = {0}, topocentric = {0}, altitude = {0}, azimuth = {0};
   ErrorStats phase = {0}, illumination_error = {0}, magnitude = {0}, rise_set = {0};
 
   // Daily samples span the documented 1900–2100 precision interval.
@@ -159,6 +172,7 @@ int main(int argc, char **argv) {
                               &short_horizontal));
       assert(astro_horizontal(jd, &observers[i], &full_moon.equatorial, false, 10,
                               &full_horizontal));
+      record_error(&topocentric, horizontal_separation(short_horizontal, full_horizontal));
       record_error(&altitude, short_horizontal.elevation_deg - full_horizontal.elevation_deg);
       if (short_horizontal.azimuth_defined && full_horizontal.azimuth_defined &&
           short_horizontal.elevation_deg < 89 && full_horizontal.elevation_deg < 89) {
@@ -173,6 +187,7 @@ int main(int argc, char **argv) {
   print_stats("Ecliptic latitude", "degrees", &latitude);
   print_stats("Distance", "km", &distance);
   print_stats("Apparent position", "degrees", &apparent);
+  print_stats("Topocentric pointing", "degrees", &topocentric);
   print_stats("Topocentric altitude", "degrees", &altitude);
   print_stats("Topocentric azimuth below 89-degree altitude", "degrees", &azimuth);
   print_stats("Phase angle", "degrees", &phase);
@@ -184,6 +199,7 @@ int main(int argc, char **argv) {
   assert(latitude.maximum < 0.00081);
   assert(distance.maximum < 10);
   assert(apparent.maximum < 0.0019);
+  assert(topocentric.maximum < 0.0019);
   assert(altitude.maximum < 0.002);
   assert(azimuth.maximum < 0.01);
   assert(phase.maximum < 0.002);

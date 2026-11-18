@@ -54,6 +54,9 @@ class EphemerisBuilderTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "term limit"):
                 build_ephemeris.read_meeus(
                     path, build_ephemeris.MOON_LATITUDE, 4, 1, max_terms=2)
+            with self.assertRaisesRegex(ValueError, "term limit"):
+                build_ephemeris.read_meeus(
+                    path, build_ephemeris.MOON_LATITUDE, 4, 1, max_terms=0)
             with self.assertRaisesRegex(ValueError, "expected 2 terms"):
                 build_ephemeris.read_meeus(path, build_ephemeris.MOON_LATITUDE, 4, 2)
             path.write_text("d,m,mp,f,latitude_1e6_deg\n0,0,0,300,1\n", encoding="ascii")
