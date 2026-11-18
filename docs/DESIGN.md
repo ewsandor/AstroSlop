@@ -1352,14 +1352,17 @@ the current clean build reports the following total footprint and remaining heap
 
 | Platform | RAM limit | Total footprint | Free heap at load |
 |---|---:|---:|---:|
-| flint | 64 KB | 60,584 B | 4,952 B |
-| basalt | 64 KB | 60,476 B | 5,060 B |
-| diorite | 64 KB | 60,476 B | 5,060 B |
-| chalk | 64 KB | 60,140 B | 5,396 B |
-| emery | 128 KB | 60,632 B | 70,440 B |
-| gabbro | 128 KB | 60,592 B | 70,480 B |
+| flint | 64 KB | 61,432 B | 4,104 B |
+| basalt | 64 KB | 61,324 B | 4,212 B |
+| diorite | 64 KB | 61,324 B | 4,212 B |
+| chalk | 64 KB | 60,988 B | 4,548 B |
+| emery | 128 KB | 61,480 B | 69,592 B |
+| gabbro | 128 KB | 61,440 B | 69,632 B |
 
-The Flint emulator logged **3,756 B free heap after startup**. The pre-resource-move baseline was
+Catalog navigation uses shared scratch storage for its candidate and search result to avoid
+overflowing the small app stack during ephemeris calculations.
+
+The Flint emulator logged **2,908 B free heap after startup**. The pre-resource-move baseline was
 2,016 B free at load and 820 B after startup; moving the Moon and Pluto tables from compiled C
 arrays into `ephemeris.bin` recovered about 2.9 KB at load. These measurements are build- and
 firmware-specific. The 64 KB targets have a tight heap budget; further growth requires measurement.
