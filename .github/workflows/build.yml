@@ -76,6 +76,9 @@ jobs:
           mkdir -p dist
           cp build/*.pbw "dist/astroslop-${{ steps.meta.outputs.version }}.pbw"
 
+      - name: Build debug flavor (not published)
+        run: pebble build -- --flavor=debug
+
       - uses: actions/upload-artifact@v4
         with:
           name: pbw

@@ -112,7 +112,16 @@ repository root, build the app:
 pebble build
 ```
 
-The package is written to `build/astroslop.pbw`.
+This builds the **release** flavor by default. To build the full-logging debug
+flavor, use:
+
+```sh
+pebble build -- --flavor=debug
+```
+
+Both flavors write `build/AstroSlop.pbw`. The debug flavor has a separate app
+UUID and display name, so it can be installed alongside the store version.
+Rebuild the release flavor before publishing; CI uploads only that package.
 
 For a release, update the version in the manifest and lockfile together, without
 creating a Git tag:

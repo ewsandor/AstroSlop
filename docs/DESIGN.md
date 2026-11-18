@@ -1368,20 +1368,30 @@ remain to be measured.
 
 ### 12.2 Memory (flint, the tightest required platform: 64 KB code + heap)
 
-The original estimate of ~46 KB for a 64 KB watch was low. The SDK's post-link memory report for
-the current clean build reports the following total footprint and remaining heap:
+The original estimate of ~46 KB for a 64 KB watch was low. The table compares the pre-change
+all-logging, non-LTO build with release builds before and after enabling LTO. These measurements
+use Pebble SDK 4.44 and its post-link memory report:
 
-| Platform | RAM limit | Total footprint | Free heap at load |
-|---|---:|---:|---:|
-| flint | 64 KB | 61,432 B | 4,104 B |
-| basalt | 64 KB | 61,324 B | 4,212 B |
-| diorite | 64 KB | 61,324 B | 4,212 B |
-| chalk | 64 KB | 60,988 B | 4,548 B |
-| emery | 128 KB | 61,480 B | 69,592 B |
-| gabbro | 128 KB | 61,440 B | 69,632 B |
+| Platform | RAM limit | All logs, no LTO | Release, no LTO | Release, LTO | LTO saving | Release free heap |
+|---|---:|---:|---:|---:|---:|---:|
+| flint | 64 KB | 62,564 B | 58,020 B | 56,484 B | 1,536 B | 9,052 B |
+| basalt | 64 KB | 62,456 B | 57,912 B | 56,376 B | 1,536 B | 9,160 B |
+| diorite | 64 KB | 62,456 B | 57,912 B | 56,376 B | 1,536 B | 9,160 B |
+| chalk | 64 KB | 62,136 B | 57,600 B | 56,048 B | 1,552 B | 9,488 B |
+| emery | 128 KB | 62,612 B | 58,076 B | 56,540 B | 1,536 B | 74,532 B |
+| gabbro | 128 KB | 62,572 B | 58,028 B | 56,476 B | 1,552 B | 74,596 B |
 
-Catalog navigation uses shared scratch storage for its candidate and search result to avoid
-overflowing the small app stack during ephemeris calculations.
+Compiling out log calls and their diagnostic timing arguments saves 4,536–4,544 B on every
+platform. Release-only `-flto -fno-fat-lto-objects` saves a further 1,536–1,552 B, including
+1,536 B on flint, so the SDK 4.44 toolchain's LTO support is retained. The SDK linker continues
+to use `-Wl,--gc-sections`; the debug flavor stays non-LTO.
+
+GCC 14.2.1 `-fstack-usage` reports were byte-for-byte identical between the release non-LTO
+control and LTO builds on all platforms. In particular, `search_moving_event` uses 320 B,
+`sample_height` 96 B, `astro_next_event` 160 B, and `astro_ephemeris_position` 608 B; the moving
+rise/set search's reported C frames did not grow with LTO. Catalog navigation uses shared scratch
+storage for its candidate and search result to avoid overflowing the small app stack during
+ephemeris calculations.
 
 The Flint emulator logged **2,908 B free heap after startup**. The pre-resource-move baseline was
 2,016 B free at load and 820 B after startup; moving the Moon and Pluto tables from compiled C
@@ -1392,7 +1402,7 @@ firmware-specific. The 64 KB targets have a tight heap budget; further growth re
 |---|---|
 | `catalogs.bin` | 10,073 B |
 | `ephemeris.bin` (VSOP87D + Moon/Pluto coefficients + 4 × 68 minor-body records) | 109,240 B |
-| `app_resources.pbpack` (all registered app resources, including icons) | 124,331 B |
+| `app_resources.pbpack` (all registered app resources, including icons) | 124,515 B |
 | Pebble resource limit | 256 KB |
 
 ### 12.3 Power

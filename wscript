@@ -71,6 +71,11 @@ def configure(ctx):
         ctx.env.PROJECT_INFO['displayName'] += ' Debug'
         for platform in ctx.env.TARGET_PLATFORMS:
             ctx.all_envs[platform].append_value('DEFINES', ['ASTRO_DEBUG=1'])
+    else:
+        for platform in ctx.env.TARGET_PLATFORMS:
+            ctx.all_envs[platform].append_value(
+                'CFLAGS', ['-flto', '-fno-fat-lto-objects'])
+            ctx.all_envs[platform].append_value('LINKFLAGS', ['-flto'])
 
 
 def build(ctx):
