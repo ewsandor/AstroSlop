@@ -21,6 +21,8 @@
 #define SOLAR_CACHE_SIZE 14
 #define BANNER_MS 1500
 #define NOTICE_MS 1000
+#define REFRESH_MIN_MS 1000
+#define REFRESH_MAX_MS 60000
 
 typedef struct {
   bool valid;
@@ -68,6 +70,8 @@ static bool s_catalogs_ready;
 static bool s_ui_ready;
 static Catalog s_catalog;
 static CatalogObject s_object;
+// Catalog navigation runs serially; shared scratch keeps large objects off the app stack.
+static ObjectSearch s_search;
 static uint8_t s_catalog_index;
 static uint16_t s_object_index;
 static bool s_object_valid;
@@ -80,6 +84,9 @@ static AstroEvent s_event;
 static bool s_event_valid;
 static time_t s_event_calculated;
 static AppTimer *s_event_timer;
+static AppTimer *s_refresh_timer;
+static double s_rate_deg_s;
+static uint32_t s_refresh_interval_ms = 60000;
 static EventJob s_event_job;
 static AppTimer *s_banner_timer;
 static AppTimer *s_flashlight_timer;
@@ -99,6 +106,7 @@ static ScreenState s_screen;
 static void update_display(void);
 static void calculate_position(bool force);
 static void schedule_event(void);
+static void schedule_refresh(void);
 static void show_selection_banner(void);
 
 static void cancel_timer(AppTimer **timer) {
@@ -161,6 +169,14 @@ static void format_magnitude(char *buffer, size_t size, double magnitude) {
   snprintf(buffer, size, "%s%ld.%ld", negative ? "-" : "", rounded / 10, rounded % 10);
 }
 
+static void append_banner_magnitude(char *buffer, size_t size, double magnitude) {
+  char formatted[16];
+  size_t length = strlen(buffer);
+  if (length >= size) return;
+  format_magnitude(formatted, sizeof(formatted), magnitude);
+  snprintf(buffer + length, size - length, "  MAG %s", formatted);
+}
+
 static unsigned position_validity(const CatalogObject *object) {
   if (s_catalog.provider == CATALOG_FIXED) return 3600;
   return object->body_kind == ASTRO_MOON ? 10 : 60;
@@ -186,9 +202,10 @@ static bool apparent_for(const Catalog *catalog, const CatalogObject *object,
   return true;
 }
 
-static void calculate_position(bool force) {
+static void calculate_position_now(bool force) {
   time_t now = time(NULL);
   s_horizontal_valid = false;
+  s_rate_deg_s = 0;
   if (!s_object_valid || !clock_valid(now)) return;
   unsigned interval = position_validity(&s_object);
   if (force || !s_current.valid || now < s_current.calculated ||
@@ -214,8 +231,22 @@ static void calculate_position(bool force) {
       &s_current.position.equatorial, s_settings.refraction, temperature_c(now), &s_horizontal);
     if (!s_horizontal_valid) {
       APP_LOG(APP_LOG_LEVEL_ERROR, "Could not compute horizontal coordinates");
+    } else {
+      AstroHorizontal later;
+      if (astro_horizontal(astro_julian_day(now) + 1.0 / 86400.0, &observer,
+          &s_current.position.equatorial, s_settings.refraction, temperature_c(now), &later)) {
+        double daz = fabs(later.azimuth_deg - s_horizontal.azimuth_deg);
+        if (daz > 180) daz = 360 - daz;
+        double dalt = fabs(later.elevation_deg - s_horizontal.elevation_deg);
+        s_rate_deg_s = daz > dalt ? daz : dalt;
+      }
     }
   }
+}
+
+static void calculate_position(bool force) {
+  calculate_position_now(force);
+  schedule_refresh();
 }
 
 static bool position_at(void *context, double jd_utc, AstroEquatorial *position) {
@@ -323,7 +354,7 @@ static void update_display(void) {
   s_screen.no_coordinates = !clock_valid(now) || !has_location ||
                             !s_horizontal_valid || !s_horizontal.azimuth_defined;
   if (!has_location && (location == LOCATION_ACQUIRING || location == LOCATION_MISSING)) {
-    if (location != LOCATION_ACQUIRING || s_settings.refresh_seconds != 1 || now % 2 == 0) {
+    if (location != LOCATION_ACQUIRING || s_refresh_interval_ms != 1000 || now % 2 == 0) {
       s_screen.icon = STATUS_ICON_LOCATION;
     }
     snprintf(s_screen.reason, sizeof(s_screen.reason), "%s", l10n(STR_NO_GPS));
@@ -386,6 +417,12 @@ static void update_display(void) {
     if (!s_screen.no_coordinates) {
       format_banner_coordinates(s_screen.banner_coordinates,
                                 sizeof(s_screen.banner_coordinates), &s_horizontal);
+      if (s_settings.show_magnitude && s_current.valid &&
+          s_current.position.magnitude_known) {
+        append_banner_magnitude(s_screen.banner_coordinates,
+                                sizeof(s_screen.banner_coordinates),
+                                s_current.position.magnitude);
+      }
     }
   }
   ui_update(&s_screen);
@@ -545,7 +582,7 @@ static void activate_object(const ObjectSearch *selection) {
 
 static SearchStatus select_catalog(uint8_t catalog_index, bool filter_new,
                                    FilterNotices *notices) {
-  Catalog next;
+  static Catalog next;
   if (!catalog_open(catalog_index, &next)) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "Could not open catalog %u", catalog_index);
     return SEARCH_CATALOG_UNAVAILABLE;
@@ -557,13 +594,13 @@ static SearchStatus select_catalog(uint8_t catalog_index, bool filter_new,
     index = 0;
     saved = false;
   }
-  ObjectSearch selection = {0};
+  memset(&s_search, 0, sizeof(s_search));
   if (filter_new && !saved) {
-    SearchStatus status = find_object(&next, 0, 1, true, &selection);
+    SearchStatus status = find_object(&next, 0, 1, true, &s_search);
     if (status != SEARCH_MATCH) return status;
   } else {
-    selection.index = index;
-    if (!catalog_object(&next, index, &selection.object)) {
+    s_search.index = index;
+    if (!catalog_object(&next, index, &s_search.object)) {
       APP_LOG(APP_LOG_LEVEL_ERROR, "Could not open catalog entry %ld", (long)index);
       return SEARCH_CATALOG_UNAVAILABLE;
     }
@@ -571,8 +608,8 @@ static SearchStatus select_catalog(uint8_t catalog_index, bool filter_new,
   s_catalog = next;
   s_catalog_index = catalog_index;
   memset(s_solar_cache, 0, sizeof(s_solar_cache));
-  activate_object(&selection);
-  if (notices) *notices = selection.notices;
+  activate_object(&s_search);
+  if (notices) *notices = s_search.notices;
   return SEARCH_MATCH;
 }
 
@@ -588,15 +625,15 @@ static void cycle_object(int direction) {
     return;
   }
   if (!s_object_valid) return;
-  ObjectSearch selection = {0};
-  SearchStatus status = find_object(&s_catalog, s_object_index, direction, false, &selection);
+  memset(&s_search, 0, sizeof(s_search));
+  SearchStatus status = find_object(&s_catalog, s_object_index, direction, false, &s_search);
   if (status != SEARCH_MATCH) {
     start_banner(l10n(status == SEARCH_FAILED ? STR_EVALUATION_FAILED : STR_NO_MATCHES), false);
     return;
   }
-  activate_object(&selection);
+  activate_object(&s_search);
   save_selection_later();
-  show_filter_banner(selection.notices);
+  show_filter_banner(s_search.notices);
 }
 
 static void flashlight_off(void *context) {
@@ -709,17 +746,37 @@ static void connection_changed(bool connected) {
   update_display();
 }
 
+static void refresh_callback(void *context) {
+  (void)context;
+  s_refresh_timer = NULL;
+  calculate_position(false);
+  update_display();
+}
+
+/* Keep the displayed value within half a display step of the true position. */
+static void schedule_refresh(void) {
+  cancel_timer(&s_refresh_timer);
+  double budget_deg = s_settings.precise ? 0.005 : 0.05;
+  uint32_t interval_ms = REFRESH_MAX_MS;
+  if (s_rate_deg_s > 0) {
+    double ms = budget_deg / s_rate_deg_s * 1000;
+    interval_ms = ms < REFRESH_MIN_MS ? REFRESH_MIN_MS :
+                  ms > REFRESH_MAX_MS ? REFRESH_MAX_MS : (uint32_t)(ms / 1000) * 1000;
+  }
+  s_refresh_interval_ms = interval_ms;
+  s_refresh_timer = app_timer_register(interval_ms, refresh_callback, NULL);
+  if (!s_refresh_timer) APP_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule refresh");
+}
+
+/* The OS minute tick keeps the clock, weather and event state current and resyncs the timer. */
 static void tick(struct tm *tick_time, TimeUnits units) {
   (void)tick_time; (void)units;
   time_t now = time(NULL);
-  bool weather_expired = false;
   if (s_weather_valid && clock_valid(now) && (uint64_t)now >= s_weather_expires) {
     s_weather_valid = false;
-    weather_expired = true;
     APP_LOG(APP_LOG_LEVEL_INFO, "Weather reading expired");
   }
-  bool refresh = now % s_settings.refresh_seconds == 0;
-  if (refresh || weather_expired) calculate_position(false);
+  calculate_position(false);
   bool event_passed = s_event_valid &&
     (s_event.kind == ASTRO_EVENT_RISE || s_event.kind == ASTRO_EVENT_SET) &&
     astro_julian_day(now) >= s_event.jd_utc;
@@ -728,12 +785,7 @@ static void tick(struct tm *tick_time, TimeUnits units) {
        now - s_event_calculated >= 600)) {
     schedule_event();
   }
-  if (refresh || weather_expired) update_display();
-}
-
-static void configure_tick(void) {
-  tick_timer_service_unsubscribe();
-  tick_timer_service_subscribe(s_settings.refresh_seconds == 60 ? MINUTE_UNIT : SECOND_UNIT, tick);
+  update_display();
 }
 
 static void process_weather(DictionaryIterator *iterator) {
@@ -764,7 +816,6 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
   bool settings_changed = settings_apply(&s_settings, iterator);
   process_weather(iterator);
   if (settings_changed) {
-    configure_tick();
     apply_backlight();
     schedule_event();
   }
@@ -815,7 +866,7 @@ static void init(void) {
   if (result != APP_MSG_OK) APP_LOG(APP_LOG_LEVEL_ERROR, "Could not open AppMessage: %d", (int)result);
   location_init(location_changed);
   connection_service_subscribe((ConnectionHandlers){.pebble_app_connection_handler = connection_changed});
-  configure_tick();
+  tick_timer_service_subscribe(MINUTE_UNIT, tick);
   calculate_position(true);
   schedule_event();
   if (filter_notice_saved && !s_filter_notice_acknowledged) show_filter_notice();
@@ -834,6 +885,7 @@ static void deinit(void) {
   cancel_timer(&s_flashlight_timer);
   flashlight_off(NULL);
   location_deinit();
+  cancel_timer(&s_refresh_timer);
   tick_timer_service_unsubscribe();
   connection_service_unsubscribe();
   app_message_deregister_callbacks();

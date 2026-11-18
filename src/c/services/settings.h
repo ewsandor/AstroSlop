@@ -12,7 +12,7 @@ typedef struct {
   uint8_t precise;
   uint8_t banner;
   uint8_t inverted;
-  uint8_t refresh_seconds;
+  uint8_t reserved_refresh;
   uint8_t min_elevation_enabled;
   int8_t min_elevation;
   uint8_t max_magnitude_enabled;
