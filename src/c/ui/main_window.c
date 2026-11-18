@@ -1,5 +1,6 @@
 #include "main_window.h"
 
+#include "../logging.h"
 #include "../services/l10n.h"
 
 #include <stdio.h>
@@ -135,7 +136,7 @@ static void set_icon_theme(bool inverted) {
   if (s_icons_inverted == inverted) return;
   for (unsigned i = 1; i < ARRAY_LENGTH(s_icons); ++i) {
     if (s_icons[i] && !invert_bitmap(s_icons[i])) {
-      APP_LOG(APP_LOG_LEVEL_ERROR, "Could not invert status icon %u", i);
+      ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not invert status icon %u", i);
       gbitmap_destroy(s_icons[i]);
       s_icons[i] = NULL;
     }
@@ -152,7 +153,7 @@ static void load_icon(unsigned icon) {
   }
   if (!s_icons[icon]) {
     if (!(s_icon_errors & (1u << icon))) {
-      APP_LOG(APP_LOG_LEVEL_ERROR, "Could not load or theme status icon %u", icon);
+      ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not load or theme status icon %u", icon);
       s_icon_errors |= 1u << icon;
     }
   } else {
@@ -383,7 +384,7 @@ static void window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
   s_canvas = layer_create(layer_get_bounds(root));
   if (!s_canvas) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not create main display layer");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not create main display layer");
     return;
   }
   layer_set_update_proc(s_canvas, canvas_update);
@@ -409,7 +410,7 @@ static void about_load(Window *window) {
   s_about_scroll = scroll_layer_create(bounds);
   s_about_text = text_layer_create(GRect(side, top, bounds.size.w - 2 * side, 1000));
   if (!s_about_scroll || !s_about_text) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not create About screen");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not create About screen");
     return;
   }
   GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
@@ -444,7 +445,7 @@ bool ui_init(ClickConfigProvider click_provider) {
   s_window = window_create();
   s_about_window = window_create();
   if (!s_window || !s_about_window) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not create application windows");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not create application windows");
     return false;
   }
   window_set_click_config_provider(s_window, click_provider);

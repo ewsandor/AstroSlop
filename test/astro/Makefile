@@ -13,10 +13,13 @@ EPHEMERIS_INPUTS := $(ROOT)/ephemeris/minor_planets.csv \
 .PHONY: all test
 all: test
 
-test: $(OUT)/test_core $(OUT)/test_ephemeris $(OUT)/test_horizons $(EPHEMERIS)
+test: $(OUT)/test_core $(OUT)/test_ephemeris $(OUT)/test_horizons \
+      $(OUT)/test_log_release $(OUT)/test_log_debug $(EPHEMERIS)
 	$(OUT)/test_core
 	$(OUT)/test_ephemeris $(EPHEMERIS)
 	$(OUT)/test_horizons $(EPHEMERIS)
+	$(OUT)/test_log_release
+	$(OUT)/test_log_debug
 
 $(OUT):
 	mkdir -p $@
@@ -29,6 +32,12 @@ $(OUT)/test_ephemeris: test_ephemeris.c $(SOURCE)/astro.c $(SOURCE)/events.c $(S
 
 $(OUT)/test_horizons: test_horizons.c $(SOURCE)/astro.c $(SOURCE)/ephemeris.c $(SOURCE)/astro.h $(SOURCE)/ephemeris.h | $(OUT)
 	$(CC) $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
+
+$(OUT)/test_log_release: test_log.c $(ROOT)/src/c/logging.h | $(OUT)
+	$(CC) $(CFLAGS) $(filter %.c,$^) -o $@
+
+$(OUT)/test_log_debug: test_log.c $(ROOT)/src/c/logging.h | $(OUT)
+	$(CC) $(CFLAGS) -DASTRO_DEBUG=1 $(filter %.c,$^) -o $@
 
 $(EPHEMERIS): $(ROOT)/tools/build_ephemeris.py $(EPHEMERIS_INPUTS)
 	python3 $< --output $@

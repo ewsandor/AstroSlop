@@ -4,6 +4,7 @@
 #include "astro/ephemeris.h"
 #include "astro/events.h"
 #include "catalog/catalog.h"
+#include "logging.h"
 #include "services/l10n.h"
 #include "services/location.h"
 #include "services/settings.h"
@@ -34,8 +35,7 @@ typedef struct {
   AstroEventPositions positions;
   AstroObserver observer;
   time_t requested;
-  time_t started_seconds;
-  uint16_t started_ms;
+  ASTRO_LOG_TIMER_FIELDS
   uint8_t sample;
   bool moving;
   bool sun;
@@ -214,13 +214,13 @@ static void calculate_position_now(bool force) {
     if (!apparent_for(&s_catalog, &s_object, s_object_index, now, &result)) {
       s_current.valid = false;
       if (!s_had_position_error) {
-        APP_LOG(APP_LOG_LEVEL_ERROR, "Could not compute %s", s_object.id);
+        ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not compute %s", s_object.id);
         s_had_position_error = true;
       }
       return;
     }
     if (result.outside_minor_epochs && !s_had_position_error) {
-      APP_LOG(APP_LOG_LEVEL_WARNING, "Minor-planet elements are outside their date range");
+      ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Minor-planet elements are outside their date range");
     }
     s_had_position_error = result.outside_minor_epochs;
     s_current = (PositionCache){.valid = true, .calculated = now, .position = result};
@@ -230,7 +230,7 @@ static void calculate_position_now(bool force) {
     s_horizontal_valid = astro_horizontal(astro_julian_day(now), &observer,
       &s_current.position.equatorial, s_settings.refraction, temperature_c(now), &s_horizontal);
     if (!s_horizontal_valid) {
-      APP_LOG(APP_LOG_LEVEL_ERROR, "Could not compute horizontal coordinates");
+      ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not compute horizontal coordinates");
     } else {
       AstroHorizontal later;
       if (astro_horizontal(astro_julian_day(now) + 1.0 / 86400.0, &observer,
@@ -268,7 +268,7 @@ static void event_callback(void *context) {
     double jd = s_event_job.positions.start_jd_utc + index * ASTRO_EVENT_SAMPLE_DAYS;
     if (!position_at(NULL, jd, &s_event_job.positions.positions[index])) {
       s_event_calculated = time(NULL);
-      APP_LOG(APP_LOG_LEVEL_WARNING, "Could not calculate rise/set position");
+      ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Could not calculate rise/set position");
       update_display();
       return;
     }
@@ -276,7 +276,7 @@ static void event_callback(void *context) {
       s_event_timer = app_timer_register(1, event_callback, NULL);
       if (!s_event_timer) {
         s_event_calculated = time(NULL);
-        APP_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule rise/set calculation");
+        ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule rise/set calculation");
       }
       return;
     }
@@ -286,14 +286,12 @@ static void event_callback(void *context) {
   s_event_valid = astro_next_event(s_event_job.positions.start_jd_utc, &s_event_job.observer,
                                    event_position, event_context, s_event_job.moving,
                                    s_event_job.sun, s_event_job.moon, &s_event);
-  time_t end_seconds;
-  uint16_t end_ms;
-  time_ms(&end_seconds, &end_ms);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Rise/set calculation: %ld ms",
-          (long)((end_seconds - s_event_job.started_seconds) * 1000 +
-                 end_ms - s_event_job.started_ms));
+  ASTRO_LOG_TIMER_END(end_seconds, end_ms);
+  ASTRO_LOG(APP_LOG_LEVEL_DEBUG, "Rise/set calculation: %ld ms",
+          (long)ASTRO_LOG_TIMER_ELAPSED(end_seconds, s_event_job.started_seconds,
+                                        end_ms, s_event_job.started_ms));
   s_event_calculated = s_event_job.requested;
-  if (!s_event_valid) APP_LOG(APP_LOG_LEVEL_WARNING, "Could not calculate next rise/set");
+  if (!s_event_valid) ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Could not calculate next rise/set");
   update_display();
 }
 
@@ -312,11 +310,11 @@ static void schedule_event(void) {
     .sun = s_catalog.provider == CATALOG_SOLAR_SYSTEM && s_object.body_kind == ASTRO_SUN,
     .moon = s_catalog.provider == CATALOG_SOLAR_SYSTEM && s_object.body_kind == ASTRO_MOON,
   };
-  time_ms(&s_event_job.started_seconds, &s_event_job.started_ms);
+  ASTRO_LOG_TIMER_START_FIELDS(&s_event_job.started_seconds, &s_event_job.started_ms);
   s_event_timer = app_timer_register(20, event_callback, NULL);
   if (!s_event_timer) {
     s_event_calculated = now;
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule rise/set calculation");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule rise/set calculation");
   }
 }
 
@@ -448,7 +446,7 @@ static void start_banner(const char *message, bool selection_after) {
   s_selection_after_banner = selection_after && s_settings.banner;
   s_banner_timer = app_timer_register(message ? NOTICE_MS : BANNER_MS, banner_finished, NULL);
   if (!s_banner_timer) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule banner dismissal");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule banner dismissal");
     s_banner_active = false;
     s_selection_after_banner = false;
   }
@@ -481,7 +479,7 @@ static void save_selection(void *context) {
   int first = persist_write_int(ACTIVE_CATALOG_KEY, s_catalog_index);
   int second = persist_write_int(CATALOG_SELECTION_KEY + s_catalog_index, s_object_index);
   if (first < 0 || second < 0) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not save catalog selection");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not save catalog selection");
   }
 }
 
@@ -489,16 +487,14 @@ static void save_selection_later(void) {
   cancel_timer(&s_save_timer);
   s_save_timer = app_timer_register(1000, save_selection, NULL);
   if (!s_save_timer) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule selection save");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule selection save");
     save_selection(NULL);
   }
 }
 
 static SearchStatus find_object(const Catalog *catalog, uint16_t start, int direction,
                                 bool include_start, ObjectSearch *result) {
-  time_t start_seconds;
-  uint16_t start_ms;
-  time_ms(&start_seconds, &start_ms);
+  ASTRO_LOG_TIMER_START();
   time_t now = time(NULL);
   AstroObserver observer;
   bool has_location = location_observer(&observer) && clock_valid(now);
@@ -512,7 +508,7 @@ static SearchStatus find_object(const Catalog *catalog, uint16_t start, int dire
     int32_t candidate_index = (int32_t)start + direction * (int32_t)(step + !include_start);
     candidate_index = (candidate_index % catalog->count + catalog->count) % catalog->count;
     if (!catalog_object(catalog, candidate_index, &result->object)) {
-      APP_LOG(APP_LOG_LEVEL_ERROR, "Could not read catalog entry %ld", (long)candidate_index);
+      ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not read catalog entry %ld", (long)candidate_index);
       failed = true;
       break;
     }
@@ -523,7 +519,7 @@ static SearchStatus find_object(const Catalog *catalog, uint16_t start, int dire
     result->position_known = clock_valid(now) &&
       apparent_for(catalog, &result->object, candidate_index, now, &result->position);
     if (clock_valid(now) && !result->position_known) {
-      APP_LOG(APP_LOG_LEVEL_WARNING, "Could not evaluate catalog entry %s", result->object.id);
+      ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Could not evaluate catalog entry %s", result->object.id);
       failed = true;
       continue;
     }
@@ -533,7 +529,7 @@ static SearchStatus find_object(const Catalog *catalog, uint16_t start, int dire
       AstroHorizontal horizontal;
       if (!astro_horizontal(astro_julian_day(now), &observer, &result->position.equatorial,
                             s_settings.refraction, temperature_c(now), &horizontal)) {
-        APP_LOG(APP_LOG_LEVEL_WARNING, "Could not evaluate elevation for %s", result->object.id);
+        ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Could not evaluate elevation for %s", result->object.id);
         failed = true;
         continue;
       }
@@ -548,11 +544,10 @@ static SearchStatus find_object(const Catalog *catalog, uint16_t start, int dire
     break;
   }
   if (status != SEARCH_MATCH && failed) status = SEARCH_FAILED;
-  time_t end_seconds;
-  uint16_t end_ms;
-  time_ms(&end_seconds, &end_ms);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Catalog search: %u objects, %ld ms",
-          searched, (long)((end_seconds - start_seconds) * 1000 + end_ms - start_ms));
+  ASTRO_LOG_TIMER_END(end_seconds, end_ms);
+  ASTRO_LOG(APP_LOG_LEVEL_DEBUG, "Catalog search: %u objects, %ld ms",
+          searched, (long)ASTRO_LOG_TIMER_ELAPSED(end_seconds, start_seconds, end_ms, start_ms));
+  (void)searched;
   return status;
 }
 
@@ -561,7 +556,7 @@ static void show_filter_banner(FilterNotices notices) {
     start_banner(l10n(STR_FILTER_NEEDS_LOCATION), true);
   } else if (notices.skipped_elevation && !s_filter_notice_acknowledged) {
     if (persist_write_bool(FILTER_NOTICE_ACK_KEY, false) < 0) {
-      APP_LOG(APP_LOG_LEVEL_ERROR, "Could not save pending filter notice");
+      ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not save pending filter notice");
     }
     show_filter_notice();
   } else {
@@ -584,13 +579,13 @@ static SearchStatus select_catalog(uint8_t catalog_index, bool filter_new,
                                    FilterNotices *notices) {
   static Catalog next;
   if (!catalog_open(catalog_index, &next)) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not open catalog %u", catalog_index);
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not open catalog %u", catalog_index);
     return SEARCH_CATALOG_UNAVAILABLE;
   }
   bool saved = persist_exists(CATALOG_SELECTION_KEY + catalog_index);
   int32_t index = saved ? persist_read_int(CATALOG_SELECTION_KEY + catalog_index) : 0;
   if (index < 0 || index >= next.count) {
-    APP_LOG(APP_LOG_LEVEL_WARNING, "Ignoring invalid saved catalog entry %ld", (long)index);
+    ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Ignoring invalid saved catalog entry %ld", (long)index);
     index = 0;
     saved = false;
   }
@@ -601,7 +596,7 @@ static SearchStatus select_catalog(uint8_t catalog_index, bool filter_new,
   } else {
     s_search.index = index;
     if (!catalog_object(&next, index, &s_search.object)) {
-      APP_LOG(APP_LOG_LEVEL_ERROR, "Could not open catalog entry %ld", (long)index);
+      ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not open catalog entry %ld", (long)index);
       return SEARCH_CATALOG_UNAVAILABLE;
     }
   }
@@ -619,7 +614,7 @@ static void cycle_object(int direction) {
     s_filter_notice_acknowledged = true;
     s_banner_active = false;
     if (persist_write_bool(FILTER_NOTICE_ACK_KEY, true) < 0) {
-      APP_LOG(APP_LOG_LEVEL_ERROR, "Could not save filter notice acknowledgement");
+      ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not save filter notice acknowledgement");
     }
     show_selection_banner();
     return;
@@ -668,7 +663,7 @@ static void toggle_flashlight(void) {
     s_flashlight_timer = app_timer_register((uint32_t)s_settings.flashlight_minutes * 60000,
                                              flashlight_off, NULL);
     if (!s_flashlight_timer) {
-      APP_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule flashlight timeout");
+      ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule flashlight timeout");
       start_banner(l10n(STR_FLASHLIGHT_UNAVAILABLE), false);
       return;
     }
@@ -765,7 +760,7 @@ static void schedule_refresh(void) {
   }
   s_refresh_interval_ms = interval_ms;
   s_refresh_timer = app_timer_register(interval_ms, refresh_callback, NULL);
-  if (!s_refresh_timer) APP_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule refresh");
+  if (!s_refresh_timer) ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule refresh");
 }
 
 /* The OS minute tick keeps the clock, weather and event state current and resyncs the timer. */
@@ -774,7 +769,7 @@ static void tick(struct tm *tick_time, TimeUnits units) {
   time_t now = time(NULL);
   if (s_weather_valid && clock_valid(now) && (uint64_t)now >= s_weather_expires) {
     s_weather_valid = false;
-    APP_LOG(APP_LOG_LEVEL_INFO, "Weather reading expired");
+    ASTRO_LOG(APP_LOG_LEVEL_INFO, "Weather reading expired");
   }
   calculate_position(false);
   bool event_passed = s_event_valid &&
@@ -798,7 +793,7 @@ static void process_weather(DictionaryIterator *iterator) {
   if (!temperature || !unit || !expires ||
       temperature->value->int32 < -1000 || temperature->value->int32 > 800 ||
       unit->value->int32 < 0 || unit->value->int32 > 1 || expires->value->int32 <= 0) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Rejected invalid weather message");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Rejected invalid weather message");
     s_weather_valid = false;
     return;
   }
@@ -825,18 +820,18 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
 
 static void inbox_dropped(AppMessageResult reason, void *context) {
   (void)context;
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Incoming message dropped: %d", (int)reason);
+  ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Incoming message dropped: %d", (int)reason);
 }
 
 static void outbox_failed(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
   (void)iterator; (void)context;
-  APP_LOG(APP_LOG_LEVEL_WARNING, "Outgoing message failed: %d", (int)reason);
+  ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Outgoing message failed: %d", (int)reason);
   location_outbox_failed();
 }
 
 static void init(void) {
   if (!setlocale(LC_ALL, "")) {
-    APP_LOG(APP_LOG_LEVEL_WARNING, "Could not initialize system locale");
+    ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Could not initialize system locale");
   }
   settings_load(&s_settings);
   bool filter_notice_saved = persist_exists(FILTER_NOTICE_ACK_KEY);
@@ -846,8 +841,8 @@ static void init(void) {
   ResHandle ephemeris_resource = resource_get_handle(RESOURCE_ID_EPHEMERIS_PACK);
   s_ephemeris_ready = astro_ephemeris_init(&s_ephemeris, catalog_resource_read,
                                             ephemeris_resource);
-  if (!s_catalogs_ready) APP_LOG(APP_LOG_LEVEL_ERROR, "Could not initialize catalog resources");
-  if (!s_ephemeris_ready) APP_LOG(APP_LOG_LEVEL_ERROR, "Could not initialize ephemeris resources");
+  if (!s_catalogs_ready) ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not initialize catalog resources");
+  if (!s_ephemeris_ready) ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not initialize ephemeris resources");
   int32_t saved_catalog = persist_exists(ACTIVE_CATALOG_KEY) ?
                           persist_read_int(ACTIVE_CATALOG_KEY) : 0;
   if (saved_catalog < 0 || saved_catalog >= catalog_count()) saved_catalog = 0;
@@ -855,7 +850,7 @@ static void init(void) {
     s_catalogs_ready = false;
   }
   if (!ui_init(click_provider)) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not initialize user interface");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not initialize user interface");
     return;
   }
   s_ui_ready = true;
@@ -863,7 +858,7 @@ static void init(void) {
   app_message_register_inbox_dropped(inbox_dropped);
   app_message_register_outbox_failed(outbox_failed);
   AppMessageResult result = app_message_open(512, 64);
-  if (result != APP_MSG_OK) APP_LOG(APP_LOG_LEVEL_ERROR, "Could not open AppMessage: %d", (int)result);
+  if (result != APP_MSG_OK) ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not open AppMessage: %d", (int)result);
   location_init(location_changed);
   connection_service_subscribe((ConnectionHandlers){.pebble_app_connection_handler = connection_changed});
   tick_timer_service_subscribe(MINUTE_UNIT, tick);
@@ -871,7 +866,7 @@ static void init(void) {
   schedule_event();
   if (filter_notice_saved && !s_filter_notice_acknowledged) show_filter_notice();
   else update_display();
-  APP_LOG(APP_LOG_LEVEL_INFO, "AstroSlop started; free heap: %lu bytes",
+  ASTRO_LOG(APP_LOG_LEVEL_INFO, "AstroSlop started; free heap: %lu bytes",
           (unsigned long)heap_bytes_free());
 }
 

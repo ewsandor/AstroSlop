@@ -15,6 +15,8 @@ out = 'build'
 
 def options(ctx):
     ctx.load('pebble_sdk')
+    ctx.add_option('--flavor', choices=('release', 'debug'), default='release',
+                   help='Build flavor: release (default) or debug')
 
 
 def generate_resources():
@@ -64,6 +66,11 @@ def configure(ctx):
     """
     generate_resources()
     ctx.load('pebble_sdk')
+    if ctx.options.flavor == 'debug':
+        ctx.env.PROJECT_INFO['uuid'] = '7a86959b-99d5-4c48-b075-9ae23c165744'
+        ctx.env.PROJECT_INFO['displayName'] += ' Debug'
+        for platform in ctx.env.TARGET_PLATFORMS:
+            ctx.all_envs[platform].append_value('DEFINES', ['ASTRO_DEBUG=1'])
 
 
 def build(ctx):
