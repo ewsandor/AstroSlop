@@ -1,5 +1,6 @@
 CC ?= cc
 CFLAGS ?= -O2 -std=c11 -Wall -Wextra -Werror
+MATH_CFLAGS = -fno-math-errno
 LDLIBS ?= -lm
 
 ROOT := ../..
@@ -22,13 +23,13 @@ $(OUT):
 	mkdir -p $@
 
 $(OUT)/test_core: test_core.c $(SOURCE)/astro.c $(SOURCE)/events.c $(SOURCE)/astro.h $(SOURCE)/events.h | $(OUT)
-	$(CC) $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
+	$(CC) $(CFLAGS) $(MATH_CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
 
 $(OUT)/test_ephemeris: test_ephemeris.c $(SOURCE)/astro.c $(SOURCE)/events.c $(SOURCE)/ephemeris.c $(SOURCE)/astro.h $(SOURCE)/events.h $(SOURCE)/ephemeris.h | $(OUT)
-	$(CC) $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
+	$(CC) $(CFLAGS) $(MATH_CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
 
 $(OUT)/test_horizons: test_horizons.c $(SOURCE)/astro.c $(SOURCE)/ephemeris.c $(SOURCE)/astro.h $(SOURCE)/ephemeris.h | $(OUT)
-	$(CC) $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
+	$(CC) $(CFLAGS) $(MATH_CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
 
 $(EPHEMERIS): $(ROOT)/tools/build_ephemeris.py $(EPHEMERIS_INPUTS)
 	python3 $< --output $@

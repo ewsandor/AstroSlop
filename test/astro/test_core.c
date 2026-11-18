@@ -63,6 +63,11 @@ static void test_stellar_pointing(void) {
 }
 
 int main(void) {
+  double log_zero = log(0.0);
+  assert(isinf(log_zero) && log_zero < 0);
+  assert(isnan(log(-1.0)));
+  assert(isnan(sqrt(-1.0)));
+
   test_stellar_pointing();
   near(astro_julian_day(0), 2440587.5, 1e-10);
   near((astro_julian_tt(2457754.5) - 2457754.5) * 86400.0, 69.184, 0.0001);
