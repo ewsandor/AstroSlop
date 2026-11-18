@@ -24,6 +24,7 @@ ELEMENTS = struct.Struct("<ddddddd")
 MOON_LONGITUDE = struct.Struct("<bbbbii")
 MOON_LATITUDE = struct.Struct("<bbbbi")
 PLUTO = struct.Struct("<bbbx6d")
+MOON_TERM_COUNT = 54
 MEEUS_TABLES = (
     ("moon_longitude.csv", MOON_LONGITUDE, 4, 60),
     ("moon_latitude.csv", MOON_LATITUDE, 4, 60),
@@ -132,7 +133,7 @@ def read_minor(path):
     return groups, first, int(step), count
 
 
-def read_meeus(path, record, integer_columns, expected):
+def read_meeus(path, record, integer_columns, expected, max_terms=None):
     rows = []
     with path.open(encoding="ascii", newline="") as source:
         reader = csv.reader(line for line in source if not line.startswith("#"))
@@ -154,10 +155,12 @@ def read_meeus(path, record, integer_columns, expected):
                 raise ValueError(f"{path}: coefficient out of range") from exc
     if len(rows) != expected:
         raise ValueError(f"{path}: expected {expected} terms, got {len(rows)}")
-    return rows
+    if max_terms is not None and not 0 <= max_terms <= expected:
+        raise ValueError(f"{path}: term limit must be between 0 and {expected}")
+    return rows if max_terms is None else rows[:max_terms]
 
 
-def build(data_path, output_path):
+def build(data_path, output_path, full_moon_series=False):
     groups, first, step, count = read_minor(data_path / "minor_planets.csv")
     body_series = []
     for planet, radius in zip(PLANETS, MIN_RADIUS_AU):
@@ -188,10 +191,16 @@ def build(data_path, output_path):
     meeus_blob = bytearray()
     meeus_counts = []
     for name, record, integer_columns, expected in MEEUS_TABLES:
-        rows = read_meeus(data_path / "meeus" / name, record, integer_columns, expected)
+        limit = (MOON_TERM_COUNT if name.startswith("moon_") and not full_moon_series
+                 else None)
+        rows = read_meeus(data_path / "meeus" / name, record, integer_columns, expected, limit)
         meeus_counts.append(len(rows))
         for row in rows:
             meeus_blob.extend(row)
+    if not full_moon_series:
+        print(f"Moon: {meeus_counts[0]} longitude/radius and "
+              f"{meeus_counts[1]} latitude terms "
+              f"({60 - meeus_counts[0]} dropped from each table)", flush=True)
     header = HEADER.pack(b"ASEP", FORMAT_VERSION, len(PLANETS), 3, 6, len(MINORS), count,
                          step, 0, first, HEADER.size, minor_offset, meeus_offset,
                          *meeus_counts, 0)
@@ -204,9 +213,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, default=DATA)
     parser.add_argument("--output", type=Path, default=ROOT / "resources/ephemeris.bin")
+    parser.add_argument("--full-moon-series", action="store_true",
+                        help="keep every Moon term (for host-test reference resources)")
     args = parser.parse_args()
     try:
-        build(args.data, args.output)
+        build(args.data, args.output, args.full_moon_series)
     except (OSError, ValueError, KeyError, struct.error) as exc:
         parser.exit(1, f"ephemeris build failed: {exc}\n")
 
