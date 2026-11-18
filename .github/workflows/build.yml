@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -120,13 +120,54 @@ jobs:
           files: dist/*.pbw
           generate_release_notes: true
 
-  # Only this job can mint an appstore token; the build job above never gets id-token.
-  # The `appstore` environment should require manual approval and be limited to v* tags.
-  publish:
-    if: github.ref_type == 'tag'
-    needs: [build, test, release]
+  # Like Core Devices' publishing workflow, check the store before requesting a deployment.
+  plan:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, test]
     runs-on: ubuntu-latest
-    environment: appstore
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      app_id: ${{ steps.check.outputs.app_id }}
+      publish: ${{ steps.check.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check appstore version
+        id: check
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          UUID=$(jq -er '.pebble.uuid | select(type == "string" and length > 0) | ascii_downcase' package.json)
+          TOKEN=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://appstore-api.repebble.com" | jq -er '.value | select(type == "string" and length > 0)')
+          echo "::add-mask::$TOKEN"
+          APP=$(curl -fsS -H "Authorization: Bearer $TOKEN" \
+            "https://appstore-api.repebble.com/api/v1/developer/me" | \
+            jq -ce --arg uuid "$UUID" '
+              [.apps[] | select((.app_uuid // "" | ascii_downcase) == $uuid)] |
+              if length == 1 then .[0] else error("Expected one appstore listing for the app UUID") end |
+              if (.app_id | type == "string" and length > 0) and
+                 (.versions | type == "array" and all(.[]; type == "string"))
+              then . else error("Appstore response is missing an app ID or versions") end')
+          echo "app_id=$(jq -r '.app_id' <<<"$APP")" >> "$GITHUB_OUTPUT"
+          if jq -e --arg version "$VERSION" '.versions | index($version) != null' <<<"$APP" >/dev/null; then
+            echo "Version $VERSION already exists in the appstore; skipping publication."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Version $VERSION is new; requesting publication."
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Configure the `Pebble Appstore` environment for main and require approval.
+  publish:
+    if: needs.plan.outputs.publish == 'true'
+    needs: [build, test, plan]
+    runs-on: ubuntu-latest
+    environment: Pebble Appstore
     permissions:
       id-token: write
     steps:
@@ -137,14 +178,16 @@ jobs:
       - name: Publish release to the Pebble appstore
         env:
           APP_ID: ${{ vars.APPSTORE_APP_ID }}
+          PLANNED_APP_ID: ${{ needs.plan.outputs.app_id }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
-          test -n "$APP_ID" || { echo "Set the APPSTORE_APP_ID repository variable" >&2; exit 1; }
+          test -n "$APP_ID" || { echo "Set the APPSTORE_APP_ID environment variable" >&2; exit 1; }
+          test "$APP_ID" = "$PLANNED_APP_ID" || { echo "APPSTORE_APP_ID does not match the app UUID" >&2; exit 1; }
           TOKEN=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://appstore-api.repebble.com" | jq -r .value)
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://appstore-api.repebble.com" | jq -er '.value | select(type == "string" and length > 0)')
           echo "::add-mask::$TOKEN"
-          curl -fsS -H "Authorization: Bearer $TOKEN" \
+          curl --fail-with-body -sS -H "Authorization: Bearer $TOKEN" \
             --form-string "version=$VERSION" \
             -F "pbwFile=@dist/astroslop-$VERSION.pbw" \
             --form-string isPublished=true \

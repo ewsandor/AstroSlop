@@ -40,6 +40,20 @@ def generate_resources():
         if any(not os.path.exists(path) or os.path.getmtime(path) < newest for path in outputs):
             subprocess.check_call([sys.executable, script, '--output', outputs[0]] + extra_args)
 
+    with open('package.json', encoding='utf-8') as manifest:
+        version = json.load(manifest)['version']
+    if not isinstance(version, str):
+        raise ValueError('package.json version must be a string')
+    version_header = 'resources/generated/app_version.inc'
+    contents = '#define APP_VERSION {}\n'.format(json.dumps(version))
+    current_contents = None
+    if os.path.exists(version_header):
+        with open(version_header, encoding='utf-8') as existing:
+            current_contents = existing.read()
+    if current_contents != contents:
+        with open(version_header, 'w', encoding='utf-8') as output:
+            output.write(contents)
+
 
 def configure(ctx):
     """
@@ -80,5 +94,6 @@ def build(ctx):
     ctx.pbl_bundle(binaries=binaries,
                    js=ctx.path.ant_glob(['src/pkjs/**/*.js',
                                          'src/pkjs/**/*.json',
-                                         'src/common/**/*.js']),
+                                         'src/common/**/*.js',
+                                         'package.json']),
                    js_entry_file='src/pkjs/index.js')
