@@ -36,7 +36,7 @@ round displays may omit secondary fields.
 | Previous / next object | Up / Down |
 | Next catalog | Select |
 | Refresh GPS and weather subscription | Hold Down |
-| Toggle timed flashlight | Hold Select |
+| Toggle timed flashlight, or trigger the system backlight when disabled | Hold Select |
 | About and credits | Hold Up |
 
 Change settings from the gear icon next to Astronomy Tools in the Pebble mobile app.

@@ -720,7 +720,8 @@ static void down_long(ClickRecognizerRef recognizer, void *context) {
 
 static void select_long(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
-  toggle_flashlight();
+  if (s_settings.flashlight_enabled) toggle_flashlight();
+  else light_enable_interaction();
 }
 
 static void click_provider(void *context) {

@@ -144,7 +144,7 @@ design intent is retained where it differs.
 | UX-8 | Filters set on the phone: minimum elevation and faintest magnitude | ✅ | §8.6 |
 | UX-9 | Configure the app in the Pebble mobile app, with an "Advanced" section | ⚠️ implemented with Clay and an explicit Save action, not the proposed bundled `configPage` | §3.5, §10.1 |
 | UX-10 | en_US by default; use a localization mechanism | ⚠️ English string lookup exists; SDK locale-framework integration and additional locales are not implemented | §11 |
-| UX-11 | Long-press Select toggles a configurable timed flashlight (1, 2, 5 or 10 min; default 5 min). Enabled by default on emery, disabled elsewhere. | ✅ white light on non-emery models | §6.8, §9.9 |
+| UX-11 | Long-press Select toggles a configurable timed flashlight (1, 2, 5 or 10 min; default 5 min), or triggers the system backlight if disabled. Enabled by default on emery, disabled elsewhere. | ✅ white light on non-emery models | §6.8, §9.9 |
 | UX-12 | Provide an on-watch About and Credits screen, opened with long-press Up | ✅ | §9.10 |
 
 ### 2.7 Non-functional (in priority order)
@@ -698,7 +698,9 @@ stateDiagram-v2
     LightOn --> LightOff: app exit or setting disabled
 ```
 
-Long-pressing Select while the flashlight setting is disabled does nothing.
+Long-pressing Select while the flashlight setting is disabled calls
+`light_enable_interaction()`, using the system backlight brightness and timeout without changing
+the selected catalog.
 
 * **LightOff → LightOn:** `light_enable(true)`, start an `AppTimer` for the configured duration, short vibe.
 * **LightOn → LightOff:** `light_enable(false)` and cancel the timer. A manual toggle also gives a short vibe.
@@ -1196,10 +1198,10 @@ per-platform flashlight default is set in two places: in C (`settings_defaults()
 `#if defined(PBL_RGB_BACKLIGHT)`), and on the settings page (from the platform that PKJS reports via
 `Pebble.getActiveWatchInfo()`), so the watch and the phone always agree.
 
-**When the flashlight is off, the app does not touch the backlight at all.** The normal PebbleOS
-behavior stays in control (a button press or wrist flick lights it for the system timeout, subject to
-the user's system backlight settings). On emery only the tint is applied, so those normal backlight
-events light up red.
+When the flashlight is off, normal PebbleOS behavior stays in control (a button press or wrist flick
+lights it for the system timeout, subject to the user's system backlight settings). If the flashlight
+setting is disabled, a long Select press also triggers this system-controlled backlight. On emery
+only the tint is applied, so those normal backlight events light up red.
 
 ### 9.9 Button mapping (UX-6, UX-11, LOC-6)
 
@@ -1208,7 +1210,7 @@ events light up red.
 | **Down** (click) | Next object in the catalog that passes the filters |
 | **Up** (click) | Previous object that passes the filters |
 | **Select** (click) | Next catalog (wraps) |
-| **Select** (long press, ≥ 700 ms) | **Toggle the flashlight** on or off (short vibration; banner). Does nothing if the flashlight is disabled. |
+| **Select** (long press, ≥ 700 ms) | **Toggle the flashlight** on or off (short vibration; banner), or trigger the system backlight if the flashlight is disabled. |
 | **Down** (long press, ≥ 700 ms) | **Force a GPS refresh** (short vibration; "Updating location…" banner; the location icon shows while acquiring) |
 | **Up** (long press, ≥ 700 ms) | About and Credits screen (§9.10) |
 | **Back** | Exit the app (system default; the flashlight turns off), or close About |
