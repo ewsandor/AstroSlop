@@ -1210,15 +1210,15 @@ events light up red.
 | **Select** (click) | Next catalog (wraps) |
 | **Select** (long press, ≥ 700 ms) | **Toggle the flashlight** on or off (short vibration; banner). Does nothing if the flashlight is disabled. |
 | **Down** (long press, ≥ 700 ms) | **Force a GPS refresh** (short vibration; "Updating location…" banner; the location icon shows while acquiring) |
-| **Up** (long press, ≥ 700 ms) | About and Credits screen (§9.10) |
-| **Back** | Exit the app (system default; the flashlight turns off), or close About |
+| **Up** (long press) | Unassigned; reserved for a future feature |
+| **Back** | Exit the app (system default; the flashlight turns off) |
 
-### 9.10 About and Credits (watch)
+### 9.10 About and Credits (phone)
 
-The watch About screen is a Gothic 18 `ScrollLayer`, opened with long-press Up and closed with Back.
-It shows the app version, nominal minor-planet coverage (§7.5), algorithm credits, catalog source
-credits generated from CSV metadata, and the personal/scientific-use notice (§13.2). The settings
-page also shows catalog source credits and a repository URL.
+The phone settings page retains the About section with the app version, nominal minor-planet
+coverage (§7.5), algorithm credits (including Sonia Keys' MIT attribution), Pebble iconography
+Apache-2.0 attribution, catalog source and license credits generated from CSV metadata, the
+personal/scientific-use notice (§13.2), and the repository URL.
 
 ### 9.11 Design mockups
 
@@ -1450,8 +1450,8 @@ registered CSV files.
 
 ### 13.3 Code and credits
 
-The application code is MIT-licensed. Source acknowledgements are shown on the watch and in
-`CREDITS.md`.
+The application code is MIT-licensed. Source acknowledgements are shown in the phone settings and
+in `CREDITS.md`.
 
 ---
 
