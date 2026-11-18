@@ -1068,7 +1068,7 @@ the object where the user left each catalog.
 | Top | Catalog title (left); position in the catalog, e.g. `31 / 110` (right) | Gothic 18 Bold |
 | Middle | Catalog ID, or object name if there is no ID | Largest fitted font, beginning with Bitham 42 Bold |
 | Bottom | Common name where present; may wrap or truncate | Fitted Gothic font |
-| Preview (emery and gabbro only) | Whole-degree azimuth and elevation, e.g. `AZ 123°  EL -4°`; hidden when current coordinates are unavailable | Gothic 24 |
+| Preview (emery and gabbro only) | Whole-degree azimuth and elevation, plus magnitude when enabled and known, e.g. `AZ 123°  EL -4°  MAG 5.2`; hidden when current coordinates are unavailable | Fitted Gothic 18 or 14 |
 
 * The banner is shown for 1.5 s after the object or catalog changes, then dismissed by a timer.
 * The title and object ordinal appear at the top; the selected object's ID (or name when it has no
@@ -1076,8 +1076,9 @@ the object where the user left each catalog.
   according to the screen shape.
 * On emery and gabbro, a small centered AZ/EL preview appears immediately below the common name when
   current horizontal coordinates are available. It rounds to whole degrees and does not change the
-  main screen's precision setting. Other devices omit this line to preserve banner spacing; missing
-  coordinates simply hide the preview without adding a warning.
+  main screen's precision setting. When "Show magnitude" is enabled and a magnitude is known, the
+  same line also shows it to one decimal place. Other devices omit this line to preserve banner
+  spacing; missing coordinates simply hide the preview without adding a warning.
 * The same canvas shows short confirmations such as "Updating location...", "Flashlight on" and
   "Flashlight off".
 * The object/catalog banner can be turned off in settings (UX-7). The short confirmations are always
@@ -1351,14 +1352,17 @@ the current clean build reports the following total footprint and remaining heap
 
 | Platform | RAM limit | Total footprint | Free heap at load |
 |---|---:|---:|---:|
-| flint | 64 KB | 60,584 B | 4,952 B |
-| basalt | 64 KB | 60,476 B | 5,060 B |
-| diorite | 64 KB | 60,476 B | 5,060 B |
-| chalk | 64 KB | 60,140 B | 5,396 B |
-| emery | 128 KB | 60,632 B | 70,440 B |
-| gabbro | 128 KB | 60,592 B | 70,480 B |
+| flint | 64 KB | 61,432 B | 4,104 B |
+| basalt | 64 KB | 61,324 B | 4,212 B |
+| diorite | 64 KB | 61,324 B | 4,212 B |
+| chalk | 64 KB | 60,988 B | 4,548 B |
+| emery | 128 KB | 61,480 B | 69,592 B |
+| gabbro | 128 KB | 61,440 B | 69,632 B |
 
-The Flint emulator logged **3,756 B free heap after startup**. The pre-resource-move baseline was
+Catalog navigation uses shared scratch storage for its candidate and search result to avoid
+overflowing the small app stack during ephemeris calculations.
+
+The Flint emulator logged **2,908 B free heap after startup**. The pre-resource-move baseline was
 2,016 B free at load and 820 B after startup; moving the Moon and Pluto tables from compiled C
 arrays into `ephemeris.bin` recovered about 2.9 KB at load. These measurements are build- and
 firmware-specific. The 64 KB targets have a tight heap budget; further growth requires measurement.

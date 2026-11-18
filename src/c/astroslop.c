@@ -67,6 +67,8 @@ static bool s_catalogs_ready;
 static bool s_ui_ready;
 static Catalog s_catalog;
 static CatalogObject s_object;
+// Catalog navigation runs serially; shared scratch keeps large objects off the app stack.
+static ObjectSearch s_search;
 static uint8_t s_catalog_index;
 static uint16_t s_object_index;
 static bool s_object_valid;
@@ -157,6 +159,14 @@ static void format_magnitude(char *buffer, size_t size, double magnitude) {
   bool negative = rounded < 0;
   if (negative) rounded = -rounded;
   snprintf(buffer, size, "%s%ld.%ld", negative ? "-" : "", rounded / 10, rounded % 10);
+}
+
+static void append_banner_magnitude(char *buffer, size_t size, double magnitude) {
+  char formatted[16];
+  size_t length = strlen(buffer);
+  if (length >= size) return;
+  format_magnitude(formatted, sizeof(formatted), magnitude);
+  snprintf(buffer + length, size - length, "  MAG %s", formatted);
 }
 
 static unsigned position_validity(const CatalogObject *object) {
@@ -383,6 +393,12 @@ static void update_display(void) {
     if (!s_screen.no_coordinates) {
       format_banner_coordinates(s_screen.banner_coordinates,
                                 sizeof(s_screen.banner_coordinates), &s_horizontal);
+      if (s_settings.show_magnitude && s_current.valid &&
+          s_current.position.magnitude_known) {
+        append_banner_magnitude(s_screen.banner_coordinates,
+                                sizeof(s_screen.banner_coordinates),
+                                s_current.position.magnitude);
+      }
     }
   }
   ui_update(&s_screen);
@@ -524,7 +540,7 @@ static void activate_object(const ObjectSearch *selection) {
 
 static SearchStatus select_catalog(uint8_t catalog_index, bool filter_new,
                                    FilterNotices *notices) {
-  Catalog next;
+  static Catalog next;
   if (!catalog_open(catalog_index, &next)) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "Could not open catalog %u", catalog_index);
     return SEARCH_CATALOG_UNAVAILABLE;
@@ -536,13 +552,13 @@ static SearchStatus select_catalog(uint8_t catalog_index, bool filter_new,
     index = 0;
     saved = false;
   }
-  ObjectSearch selection = {0};
+  memset(&s_search, 0, sizeof(s_search));
   if (filter_new && !saved) {
-    SearchStatus status = find_object(&next, 0, 1, true, &selection);
+    SearchStatus status = find_object(&next, 0, 1, true, &s_search);
     if (status != SEARCH_MATCH) return status;
   } else {
-    selection.index = index;
-    if (!catalog_object(&next, index, &selection.object)) {
+    s_search.index = index;
+    if (!catalog_object(&next, index, &s_search.object)) {
       APP_LOG(APP_LOG_LEVEL_ERROR, "Could not open catalog entry %ld", (long)index);
       return SEARCH_CATALOG_UNAVAILABLE;
     }
@@ -550,22 +566,22 @@ static SearchStatus select_catalog(uint8_t catalog_index, bool filter_new,
   s_catalog = next;
   s_catalog_index = catalog_index;
   memset(s_solar_cache, 0, sizeof(s_solar_cache));
-  activate_object(&selection);
-  if (notices) *notices = selection.notices;
+  activate_object(&s_search);
+  if (notices) *notices = s_search.notices;
   return SEARCH_MATCH;
 }
 
 static void cycle_object(int direction) {
   if (!s_object_valid) return;
-  ObjectSearch selection = {0};
-  SearchStatus status = find_object(&s_catalog, s_object_index, direction, false, &selection);
+  memset(&s_search, 0, sizeof(s_search));
+  SearchStatus status = find_object(&s_catalog, s_object_index, direction, false, &s_search);
   if (status != SEARCH_MATCH) {
     start_banner(l10n(status == SEARCH_FAILED ? STR_EVALUATION_FAILED : STR_NO_MATCHES), false);
     return;
   }
-  activate_object(&selection);
+  activate_object(&s_search);
   save_selection_later();
-  show_filter_banner(selection.notices);
+  show_filter_banner(s_search.notices);
 }
 
 static void flashlight_off(void *context) {
