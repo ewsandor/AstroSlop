@@ -9,8 +9,19 @@ import os.path
 import subprocess
 import sys
 
+from waflib import TaskGen
+
 top = '.'
 out = 'build'
+
+
+@TaskGen.feature('astro_math_errno')
+@TaskGen.after_method('process_source')
+def add_astro_math_errno_flag(task_gen):
+    # Astro code checks finite values and never relies on math errno.
+    for task in task_gen.tasks:
+        if task.inputs and task.inputs[0].path_from(task_gen.path).startswith('src/c/'):
+            task.env.append_value('CFLAGS', ['-fno-math-errno'])
 
 
 def options(ctx):
@@ -78,11 +89,9 @@ def build(ctx):
         ctx.env = ctx.all_envs[platform]
         ctx.set_group(ctx.env.PLATFORM_NAME)
         app_elf = '{}/pebble-app.elf'.format(ctx.env.BUILD_DIR)
-        # Astro code checks finite values and never relies on math errno.
-        app_cflags = list(ctx.env.CFLAGS)
-        ctx.env.append_value('CFLAGS', ['-fno-math-errno'])
-        ctx.pbl_build(source=ctx.path.ant_glob('src/c/**/*.c'), target=app_elf, bin_type='app')
-        ctx.env.CFLAGS = app_cflags
+        app = ctx.pbl_build(source=ctx.path.ant_glob('src/c/**/*.c'), target=app_elf,
+                            bin_type='app')
+        app.features = app.to_list(app.features) + ['astro_math_errno']
 
         if build_worker:
             worker_elf = '{}/pebble-worker.elf'.format(ctx.env.BUILD_DIR)
