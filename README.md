@@ -123,6 +123,19 @@ npm version 0.1.1 --no-git-tag-version
 
 The watch and settings About screens use the version from `package.json`.
 
+The GitHub Actions workflow checks the Pebble appstore after a successful build
+and tests on pushes to `main`. If the version is new, it publishes the built
+package after any protection rules on the `Pebble Appstore` environment pass.
+Create the listing in the Pebble Developer Dashboard first, authorize
+`.github/workflows/build.yml` on `main` for GitHub Actions publishing, and set
+the environment variable `APPSTORE_APP_ID` to the listing ID. Configure the
+environment to allow the `main` branch and require a reviewer if approval is
+wanted. Without a reviewer, a new version can be published automatically.
+
+Pushing a matching `vX.Y.Z` tag separately creates a GitHub Release; tags do not
+publish to the Pebble appstore. Versions already returned by the appstore's
+developer API are not uploaded again.
+
 ### Install on a watch
 
 Pair your watch with the Pebble mobile app and sign in to your Pebble account.
