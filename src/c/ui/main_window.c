@@ -296,9 +296,33 @@ static void draw_banner(GContext *context, GRect bounds, const Layout *item) {
   int top = item->round ? (small ? 18 : 40) : 0;
   int side = item->round ? (small ? 24 : 36) : 4;
   if (s_screen->banner_message[0]) {
+    GRect message_rect = GRect(side, height / 2 - 32, width - 2 * side, 80);
+    if (s_screen->filter_notice) {
+      int margin = item->round ? (small ? 30 : 40) : 8;
+      message_rect = GRect(side, margin, width - 2 * side, height - 2 * margin);
+    }
+    GFont message_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+    GSize message_size = graphics_text_layout_get_content_size(s_screen->banner_message,
+      message_font, GRect(0, 0, message_rect.size.w, 1000),
+      GTextOverflowModeWordWrap, GTextAlignmentCenter);
+    if (message_size.h > message_rect.size.h) {
+      message_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+      message_size = graphics_text_layout_get_content_size(s_screen->banner_message,
+        message_font, GRect(0, 0, message_rect.size.w, 1000),
+        GTextOverflowModeWordWrap, GTextAlignmentCenter);
+      if (message_size.h > message_rect.size.h) {
+        message_font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
+        message_size = graphics_text_layout_get_content_size(s_screen->banner_message,
+          message_font, GRect(0, 0, message_rect.size.w, 1000),
+          GTextOverflowModeWordWrap, GTextAlignmentCenter);
+      }
+    }
+    if (s_screen->filter_notice && message_size.h < message_rect.size.h) {
+      message_rect.origin.y += (message_rect.size.h - message_size.h) / 2;
+      message_rect.size.h = message_size.h;
+    }
     graphics_draw_text(context, s_screen->banner_message,
-      fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
-      GRect(side, height / 2 - 32, width - 2 * side, 80),
+      message_font, message_rect,
       GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
     return;
   }
