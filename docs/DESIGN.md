@@ -1259,7 +1259,9 @@ or temperature (§9.4); aplite is not supported (§3.2).
 
 **0.01° mode**
 
-![0.01° mode on all platforms](images/sheets/precise.png)
+![0.01° mode on 128 KB platforms](images/sheets/precise.png)
+
+The 64 KB platforms cap displayed coordinates at 0.1° even when 0.01° is selected.
 
 **Inverted**
 
