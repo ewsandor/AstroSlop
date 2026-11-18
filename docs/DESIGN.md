@@ -778,6 +778,12 @@ For stars, Messier objects and constellation centers:
    low-precision formula [Meeus Ch. 25]. Up to 20″.
 5. Nutation applied to α and δ [Meeus eq. 23.1].
 
+On the 64 KB targets, `ASTRO_LOW_MEMORY` omits annual aberration and nutation corrections but
+still computes mean obliquity for coordinate rotations. Host comparisons across four epochs and a
+full-sky star grid observed a maximum 0.010370° difference (stars); the low-memory app therefore
+uses 0.1° display precision even if the 0.01° option is selected. Emery and Gabbro retain the
+full-accuracy path.
+
 Annual parallax (< 1″) and light deflection by the Sun are ignored.
 
 ### 7.5 Solar-system bodies
@@ -789,6 +795,13 @@ Annual parallax (< 1″) and light deflection by the Sun are ignored.
 | **Moon** | Meeus Ch. 47: 60 longitude/radius terms and 60 latitude terms, plus A1–A3 additive terms and the E eccentricity factor; the coefficient tables are stored in `ephemeris.bin` and streamed in batches of at most four | [Meeus Ch. 47]; coefficient transcription from Sonia Keys' MIT-licensed `meeus` implementation | ~10″ in longitude, ~4″ in latitude |
 | **Pluto** | 43-term periodic series, heliocentric J2000 → geocentric with light-time, then precession to the date; coefficients are stored in `ephemeris.bin` and streamed in batches of at most four | [Meeus Ch. 37]; coefficient transcription from Sonia Keys' MIT-licensed `meeus` implementation | ~1″. **Valid 1885–2099 only**; outside that range calculation returns unavailable. |
 | **Vesta, Juno, Ceres, Pallas** | Two-body Kepler orbit from **JPL Horizons osculating elements** (epoch, a, e, i, Ω, ω, M), taken from a compile-time table with one element set **every 60 days for ~10 years** (2026–2036; the spacing is a build parameter). The set with the nearest epoch is used. Kepler's equation is solved by Newton iteration [Meeus Ch. 30], then J2000 ecliptic → equatorial, light-time, precession and nutation. | [Meeus Ch. 30, 33] | With at most 30 days from the epoch: about 1″–10″ (to be measured against Horizons). After the table ends, accuracy decays (see below). |
+
+`ASTRO_LOW_MEMORY` also omits nutation and annual aberration for solar-system apparent places;
+mean obliquity remains in use. In the host comparison grid the maximum observed differences were
+0.009872° for the Sun, 0.004859° for the Moon, 0.009757° for planets, 0.009480° for Pluto and
+0.010179° for minor planets. Across the sky grid and all listed bodies the maximum was 0.010370°,
+below the low-memory build's 0.1° display step. These are sampled maxima, not a bound for every
+date or position. The sampled rise/set events changed by at most 42.19 seconds.
 
 **Minor-planet element table.** Osculating elements describe the two-body orbit at one instant;
 planetary perturbations (mainly Jupiter) make the real orbit drift from it, reaching about 0.1°
@@ -1373,12 +1386,16 @@ the current clean build reports the following total footprint and remaining heap
 
 | Platform | RAM limit | Total footprint | Free heap at load |
 |---|---:|---:|---:|
-| flint | 64 KB | 61,432 B | 4,104 B |
-| basalt | 64 KB | 61,324 B | 4,212 B |
-| diorite | 64 KB | 61,324 B | 4,212 B |
-| chalk | 64 KB | 60,988 B | 4,548 B |
-| emery | 128 KB | 61,480 B | 69,592 B |
-| gabbro | 128 KB | 61,440 B | 69,632 B |
+| flint | 64 KB | 58,716 B | 6,820 B |
+| basalt | 64 KB | 58,608 B | 6,928 B |
+| diorite | 64 KB | 58,608 B | 6,928 B |
+| chalk | 64 KB | 58,288 B | 7,248 B |
+| emery | 128 KB | 62,756 B | 68,316 B |
+| gabbro | 128 KB | 62,716 B | 68,356 B |
+
+Compared with the pre-change full-accuracy Flint build, `.text` decreased from 58,840 B to
+54,992 B, a measured saving of **3,848 B** (SDK 4.44). The SDK's memory report shows 3,848 B more
+free heap at load on Flint.
 
 Catalog navigation uses shared scratch storage for its candidate and search result to avoid
 overflowing the small app stack during ephemeris calculations.
