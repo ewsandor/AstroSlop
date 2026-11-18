@@ -15,10 +15,7 @@ typedef struct {
 } Layout;
 
 static Window *s_window;
-static Window *s_about_window;
 static Layer *s_canvas;
-static ScrollLayer *s_about_scroll;
-static TextLayer *s_about_text;
 static GBitmap *s_icons[6];
 static const ScreenState *s_screen;
 static GFont s_value_font;
@@ -400,64 +397,20 @@ static void window_unload(Window *window) {
   s_canvas = NULL;
 }
 
-static void about_load(Window *window) {
-  if (!s_screen) return;
-  Layer *root = window_get_root_layer(window);
-  GRect bounds = layer_get_bounds(root);
-  int side = PBL_IF_ROUND_ELSE(bounds.size.w / 7, 4);
-  int top = PBL_IF_ROUND_ELSE(bounds.size.h / 8, 0);
-  s_about_scroll = scroll_layer_create(bounds);
-  s_about_text = text_layer_create(GRect(side, top, bounds.size.w - 2 * side, 1000));
-  if (!s_about_scroll || !s_about_text) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not create About screen");
-    return;
-  }
-  GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
-  text_layer_set_font(s_about_text, font);
-  const char *about_text = l10n(STR_ABOUT_BODY);
-  text_layer_set_text(s_about_text, about_text);
-  text_layer_set_background_color(s_about_text, s_screen->inverted ? GColorBlack : GColorWhite);
-  text_layer_set_text_color(s_about_text, s_screen->inverted ? GColorWhite : GColorBlack);
-  text_layer_set_text_alignment(s_about_text,
-                                PBL_IF_ROUND_ELSE(GTextAlignmentCenter, GTextAlignmentLeft));
-  GSize size = graphics_text_layout_get_content_size(about_text, font,
-    GRect(0, 0, bounds.size.w - 2 * side, 1500),
-    GTextOverflowModeWordWrap, PBL_IF_ROUND_ELSE(GTextAlignmentCenter, GTextAlignmentLeft));
-  layer_set_frame(text_layer_get_layer(s_about_text),
-                  GRect(side, top, bounds.size.w - 2 * side, size.h + 8));
-  scroll_layer_add_child(s_about_scroll, text_layer_get_layer(s_about_text));
-  scroll_layer_set_content_size(s_about_scroll, GSize(bounds.size.w, size.h + top + 16));
-  scroll_layer_set_click_config_onto_window(s_about_scroll, window);
-  layer_add_child(root, scroll_layer_get_layer(s_about_scroll));
-  window_set_background_color(window, s_screen->inverted ? GColorBlack : GColorWhite);
-}
-
-static void about_unload(Window *window) {
-  (void)window;
-  if (s_about_text) text_layer_destroy(s_about_text);
-  if (s_about_scroll) scroll_layer_destroy(s_about_scroll);
-  s_about_text = NULL;
-  s_about_scroll = NULL;
-}
-
 bool ui_init(ClickConfigProvider click_provider) {
   s_window = window_create();
-  s_about_window = window_create();
-  if (!s_window || !s_about_window) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not create application windows");
+  if (!s_window) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not create application window");
     return false;
   }
   window_set_click_config_provider(s_window, click_provider);
   window_set_window_handlers(s_window, (WindowHandlers){.load = window_load, .unload = window_unload});
-  window_set_window_handlers(s_about_window, (WindowHandlers){.load = about_load, .unload = about_unload});
   window_stack_push(s_window, true);
   return s_canvas != NULL;
 }
 
 void ui_deinit(void) {
-  if (s_about_window) window_destroy(s_about_window);
   if (s_window) window_destroy(s_window);
-  s_about_window = NULL;
   s_window = NULL;
   s_screen = NULL;
 }
@@ -468,10 +421,4 @@ void ui_update(const ScreenState *state) {
   update_icons(state);
   s_screen = state;
   if (s_canvas) layer_mark_dirty(s_canvas);
-}
-
-void ui_show_about(void) {
-  if (s_about_window && !window_stack_contains_window(s_about_window)) {
-    window_stack_push(s_about_window, true);
-  }
 }

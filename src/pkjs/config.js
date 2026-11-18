@@ -95,7 +95,8 @@ module.exports = function(page) {
       {type: 'text', defaultValue:
        '<p>Astronomy Tools ' + escapeHtml(appVersion) +
        '. Minor-planet elements cover 2026-2036.</p>' +
-       '<p>Algorithms: Meeus; VSOP87/IMCCE; NASA/JPL Horizons and SBDB. ' +
+       '<p>Algorithms: J. Meeus, Astronomical Algorithms; VSOP87, Bretagnon &amp; Francou / ' +
+       'IMCCE; NASA/JPL Horizons and SBDB; Sonia Keys (MIT).</p>' +
        'Icons: Pebble iconography, Apache-2.0.</p><ul>' + credits + '</ul>' +
        '<p>Catalog data are for personal and scientific use only; review each ' +
        'source\'s terms.</p>' +

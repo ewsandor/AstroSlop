@@ -706,11 +706,6 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
   }
 }
 
-static void up_long(ClickRecognizerRef recognizer, void *context) {
-  (void)recognizer; (void)context;
-  ui_show_about();
-}
-
 static void down_long(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
   vibes_short_pulse();
@@ -728,7 +723,6 @@ static void click_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_UP, up_click);
   window_single_click_subscribe(BUTTON_ID_DOWN, down_click);
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
-  window_long_click_subscribe(BUTTON_ID_UP, 700, up_long, NULL);
   window_long_click_subscribe(BUTTON_ID_DOWN, 700, down_long, NULL);
   window_long_click_subscribe(BUTTON_ID_SELECT, 700, select_long, NULL);
 }
