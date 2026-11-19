@@ -1,4 +1,4 @@
-# Telescope PushTo Guide — Design and As-Built Document
+# PushTo Tool — Design and As-Built Document
 
 | | |
 |---|---|
@@ -37,9 +37,9 @@ identified explicitly; this is an as-built record, not a change to the original 
 
 ## 1. Purpose and Scope
 
-Telescope PushTo Guide (shown as **PushTo Guide** in the watch launcher) is a
-Pebble watchapp for **visual astronomy in the field with an altitude–azimuth mount**,
-such as a Dobsonian telescope. The user selects a catalog object; the watch continuously displays
+PushTo Tool is a Pebble watchapp for **visual astronomy in the field with an
+altitude–azimuth mount**, such as a Dobsonian telescope. The user selects a
+catalog object; the watch continuously displays
 its **azimuth and elevation** for the observer's location and current time. The user points the
 telescope with an azimuth **setting circle** and an **inclinometer**.
 
@@ -650,7 +650,7 @@ sequenceDiagram
     participant PKJS as PKJS index.js
     participant Watch
 
-    User->>PhoneApp: open Telescope PushTo Guide settings
+    User->>PhoneApp: open PushTo Tool settings
     PhoneApp->>PKJS: showConfiguration event
     PKJS->>Page: generate Clay layout and URL with current values
     User->>Page: edit settings, press Save

@@ -1,14 +1,14 @@
 {
   "name": "astroslop",
   "author": "Sandor Laboratories",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {
     "@rebble/clay": "^1.1.0"
   },
   "pebble": {
-    "displayName": "PushTo Guide",
+    "displayName": "PushTo Tool",
     "uuid": "0f463d47-47e7-46f1-a7d6-94590ffc001d",
     "sdkVersion": "3",
     "enableMultiJS": true,

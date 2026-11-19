@@ -1,9 +1,9 @@
-# Telescope PushTo Guide
+# PushTo Tool
 
-Telescope PushTo Guide is a Pebble watchapp for visual astronomy. It shows the
+PushTo Tool is a Pebble watchapp for visual astronomy. It shows the
 live altitude and azimuth of your target so you can aim a Dobsonian or other
 manual alt-az telescope with a setting circle and an angle gauge. No motors or
-encoders are required. On the watch, look for **PushTo Guide** beside the
+encoders are required. On the watch, look for **PushTo Tool** beside the
 telescope icon.
 
 **Status:** Initial implementation; hardware validation remains outstanding.
@@ -143,10 +143,11 @@ the environment variable `APPSTORE_APP_ID` to the listing ID. Configure the
 environment to allow the `main` branch and require a reviewer if approval is
 wanted. Without a reviewer, a new version can be published automatically.
 
-Set the listing's **App Name** to **Telescope PushTo Guide** in the
+Set the listing's **App Name** to **PushTo Tool** in the
 [Pebble Developer Dashboard](https://developer.repebble.com/dashboard).
-The release upload does not rename the listing. The watch launcher label
-is **PushTo Guide**, set by `pebble.displayName` in `package.json`.
+The release upload does not rename the listing. Store installs use the listing
+name in the watch launcher; sideloads use `pebble.displayName` in `package.json`.
+Keep both set to **PushTo Tool**.
 
 Pushing a matching `vX.Y.Z` tag separately creates a GitHub Release; tags do not
 publish to the Pebble appstore. Versions already returned by the appstore's

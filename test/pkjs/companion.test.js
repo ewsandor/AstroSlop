@@ -96,7 +96,8 @@ async function main() {
   assert.equal(shown.settings.LATITUDE, '51.4778');
   assert.equal(shown.meta.userData.lastFix.latitude, 51.5);
   const configText = JSON.stringify(shown.config);
-  assert.ok(configText.includes('Telescope PushTo Guide ' + require('../../package.json').version + '.'));
+  const { pebble, version } = require('../../package.json');
+  assert.ok(configText.includes(`${pebble.displayName} ${version}.`));
   assert.match(configText, /Minor-planet elements cover 2026-2036/);
   assert.match(configText, /Sonia Keys \(MIT\)/);
   assert.match(configText, /Pebble iconography, Apache-2\.0/);
