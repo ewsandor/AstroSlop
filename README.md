@@ -116,7 +116,7 @@ This builds the **release** flavor by default. To build the full-logging debug
 flavor, use:
 
 ```sh
-pebble build -- --flavor=debug
+pebble build -- --mode=debug
 ```
 
 Both flavors write `build/AstroSlop.pbw`. The debug flavor has a separate app
