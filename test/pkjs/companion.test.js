@@ -63,6 +63,8 @@ async function main() {
                      context);
   listeners.ready({});
   assert.equal(sent[0].JS_READY, 1);
+  assert.equal(sent[1].CFG_USE_WEATHER, 1);
+  assert.equal(sent[1].CFG_REFRACTION, 1);
   assert.equal(sent[1].CFG_FLASHLIGHT_ENABLED, 1);
   listeners.appmessage({payload: {REQ_LOCATION: 2}});
   assert.equal(gps[0].options.maximumAge, 0);
@@ -92,6 +94,8 @@ async function main() {
   assert.equal(opened.length, 1);
   assert.equal(shown.settings.CFG_MIN_ELEV, 0);
   assert.equal(shown.settings.CFG_SHOW_TIME, true);
+  assert.equal(shown.settings.CFG_USE_WEATHER, true);
+  assert.equal(shown.settings.CFG_REFRACTION, true);
   assert.equal(shown.settings.CFG_LABEL_MODE, '2');
   assert.equal(shown.settings.LATITUDE, '51.4778');
   assert.equal(shown.meta.userData.lastFix.latitude, 51.5);
@@ -115,9 +119,9 @@ async function main() {
   assert.equal(sent.length, count);
 
   await page({CFG_USE_WEATHER: true});
-  assert.equal(subscriptions.length, 1);
+  assert.equal(subscriptions.length, 3);
   const expiry = Date.now() + 1800000;
-  subscriptions[0].options.onData({
+  subscriptions[2].options.onData({
     validUntilMs: expiry,
     instances: [{properties: {temperature: {numericValue: {value: 68, unit: '\u00b0F'}}}}]
   });
@@ -126,14 +130,14 @@ async function main() {
   assert.equal(weather.WX_TEMP_UNIT, 1);
   assert.equal(weather.WX_EXPIRES, Math.floor(expiry / 1000));
   listeners.appmessage({payload: {REQ_LOCATION: 1}});
-  assert.equal(subscriptions[0].unsubscribed, true);
-  assert.equal(subscriptions.length, 2);
-  subscriptions[1].options.onData({
+  assert.equal(subscriptions[2].unsubscribed, true);
+  assert.equal(subscriptions.length, 4);
+  subscriptions[3].options.onData({
     instances: [{properties: {temperature: {numericValue: {value: 10, unit: '\u00b0C'}}}}]
   });
   weather = sent.at(-1);
   assert.ok(weather.WX_EXPIRES >= Math.floor(Date.now() / 1000) + 10799);
-  subscriptions[1].options.onError(undefined);
+  subscriptions[3].options.onError(undefined);
   assert.equal(sent.at(-1).WX_CLEAR, 1);
 
   await page({CFG_USE_WEATHER: false});

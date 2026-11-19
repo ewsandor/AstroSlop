@@ -41,7 +41,7 @@ var sending = false;
 
 function defaults() {
   return {
-    labelMode: 2, showTime: 1, showEvent: 1, showMagnitude: 1, useWeather: 0,
+    labelMode: 2, showTime: 1, showEvent: 1, showMagnitude: 1, useWeather: 1,
     precision: 0, banner: 1, inverted: 0,
     minElevationEnabled: 1, minElevation: 0, maxMagnitudeEnabled: 0, maxMagnitude: 8,
     refraction: 1, redTint: 1, flashlightEnabled: platform === 'emery' ? 1 : 0,
