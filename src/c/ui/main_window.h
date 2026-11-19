@@ -39,4 +39,3 @@ bool ui_init(ClickConfigProvider click_provider);
 void ui_deinit(void);
 // The state must remain valid until the next update or ui_deinit().
 void ui_update(const ScreenState *state);
-void ui_show_about(void);
