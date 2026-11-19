@@ -27,7 +27,7 @@
     "usesPermissions": [
       {
         "name": "Location",
-        "reason": "To compute where objects are in your sky",
+        "reason": "To determine the observer's location and fetch local weather to correct for atmospheric refraction",
         "required": true
       }
     ],
