@@ -1,5 +1,7 @@
 #include "location.h"
 
+#include "../logging.h"
+
 #include <string.h>
 
 #define LOCATION_KEY 2
@@ -50,7 +52,7 @@ static void schedule_next(uint32_t delay_ms) {
   cancel_timer(&s_next_timer);
   s_next_timer = app_timer_register(delay_ms, next_request, NULL);
   if (!s_next_timer) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule location refresh");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule location refresh");
   }
 }
 
@@ -69,7 +71,7 @@ static void request_failed(uint8_t error) {
 static void request_timeout(void *context) {
   (void)context;
   s_timeout_timer = NULL;
-  APP_LOG(APP_LOG_LEVEL_WARNING, "Location request timed out");
+  ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Location request timed out");
   request_failed(3);
 }
 
@@ -80,20 +82,20 @@ static void send_request(void) {
   DictionaryIterator *iterator = NULL;
   AppMessageResult status = app_message_outbox_begin(&iterator);
   if (status != APP_MSG_OK || !iterator) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Location outbox unavailable: %d", (int)status);
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Location outbox unavailable: %d", (int)status);
     request_failed(3);
     return;
   }
   DictionaryResult written = dict_write_uint8(iterator, MESSAGE_KEY_REQ_LOCATION,
                                                s_forced ? 2 : 1);
   if (written != DICT_OK) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not encode location request: %d", (int)written);
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not encode location request: %d", (int)written);
     request_failed(3);
     return;
   }
   status = app_message_outbox_send();
   if (status != APP_MSG_OK) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not send location request: %d", (int)status);
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not send location request: %d", (int)status);
     request_failed(3);
     return;
   }
@@ -107,7 +109,7 @@ void location_init(LocationChanged changed) {
     if (read == (int)sizeof(s_fix) && valid_fix(&s_fix)) {
       s_has_fix = true;
     } else {
-      APP_LOG(APP_LOG_LEVEL_WARNING, "Ignoring invalid saved location");
+      ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Ignoring invalid saved location");
     }
   }
   location_request(false);
@@ -136,7 +138,7 @@ void location_request(bool forced) {
   s_error = 0;
   s_timeout_timer = app_timer_register(REQUEST_TIMEOUT_MS, request_timeout, NULL);
   if (!s_timeout_timer) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule location timeout");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule location timeout");
     request_failed(3);
     return;
   }
@@ -150,7 +152,7 @@ void location_connection_changed(bool connected) {
       location_request(s_forced);
     }
   } else if (s_requesting) {
-    APP_LOG(APP_LOG_LEVEL_WARNING, "Phone disconnected during location request");
+    ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Phone disconnected during location request");
     request_failed(3);
   }
 }
@@ -165,7 +167,7 @@ void location_process_message(DictionaryIterator *iterator) {
   Tuple *error = dict_find(iterator, MESSAGE_KEY_LOC_ERROR);
   if (error) {
     int32_t code = error->value->int32;
-    APP_LOG(APP_LOG_LEVEL_WARNING, "Phone location error: %ld", (long)code);
+    ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Phone location error: %ld", (long)code);
     request_failed(code >= 1 && code <= 3 ? (uint8_t)code : 3);
     return;
   }
@@ -180,14 +182,14 @@ void location_process_message(DictionaryIterator *iterator) {
   Tuple *source = dict_find(iterator, MESSAGE_KEY_LOC_SOURCE);
   Tuple *timestamp = dict_find(iterator, MESSAGE_KEY_LOC_TIME);
   if (!lat || !lon || !alt || !alt_valid || !accuracy || !source || !timestamp) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Incomplete location message");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Incomplete location message");
     request_failed(3);
     return;
   }
   if (source->value->int32 < 0 || source->value->int32 > 1 ||
       alt_valid->value->int32 < 0 || alt_valid->value->int32 > 1 ||
       accuracy->value->int32 < 0 || timestamp->value->int32 <= 0) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Rejected invalid location metadata");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Rejected invalid location metadata");
     request_failed(3);
     return;
   }
@@ -202,7 +204,7 @@ void location_process_message(DictionaryIterator *iterator) {
     .timestamp = timestamp->value->uint32,
   };
   if (!valid_fix(&fix)) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Rejected invalid phone location");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Rejected invalid phone location");
     request_failed(3);
     return;
   }
@@ -216,10 +218,10 @@ void location_process_message(DictionaryIterator *iterator) {
   cancel_timer(&s_timeout_timer);
   int written = persist_write_data(LOCATION_KEY, &s_fix, sizeof(s_fix));
   if (written != (int)sizeof(s_fix)) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not persist location: %d", written);
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not persist location: %d", written);
   }
   if (!s_fix.altitude_known) {
-    APP_LOG(APP_LOG_LEVEL_WARNING, "GPS altitude unavailable; assuming sea level");
+    ASTRO_LOG(APP_LOG_LEVEL_WARNING, "GPS altitude unavailable; assuming sea level");
   }
   schedule_next(60u * 60u * 1000u);
   notify(true);

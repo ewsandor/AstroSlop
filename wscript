@@ -15,6 +15,8 @@ out = 'build'
 
 def options(ctx):
     ctx.load('pebble_sdk')
+    ctx.add_option('--mode', choices=('release', 'debug'), default='release',
+                   help='Build mode: release (default) or debug')
 
 
 def generate_resources():
@@ -48,6 +50,19 @@ def configure(ctx):
     """
     generate_resources()
     ctx.load('pebble_sdk')
+    if ctx.options.mode == 'debug':
+        ctx.env.PROJECT_INFO['uuid'] = '7a86959b-99d5-4c48-b075-9ae23c165744'
+        debug_name = ctx.env.PROJECT_INFO['displayName'] + ' Debug'
+        ctx.env.PROJECT_INFO['displayName'] = debug_name
+        ctx.env.PROJECT_INFO['shortName'] = debug_name
+        ctx.env.PROJECT_INFO['longName'] = debug_name
+        for platform in ctx.env.TARGET_PLATFORMS:
+            ctx.all_envs[platform].append_value('DEFINES', ['ASTRO_DEBUG=1'])
+    else:
+        for platform in ctx.env.TARGET_PLATFORMS:
+            ctx.all_envs[platform].append_value(
+                'CFLAGS', ['-flto', '-fno-fat-lto-objects'])
+            ctx.all_envs[platform].append_value('LINKFLAGS', ['-flto'])
 
 
 def build(ctx):

@@ -72,6 +72,10 @@ async function main() {
   assert.equal(fix.LOC_LON_E6, -100000);
   assert.equal(fix.LOC_ALT_VALID, 0);
   assert.equal(fix.LOC_ALT_M, 0);
+  listeners.appmessage({payload: {REQ_LOCATION: 1}});
+  gps.at(-1).failure(undefined);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(sent.at(-1).LOC_ERROR, 3);
 
   function page(values) {
     const response = {};
@@ -128,6 +132,8 @@ async function main() {
   });
   weather = sent.at(-1);
   assert.ok(weather.WX_EXPIRES >= Math.floor(Date.now() / 1000) + 10799);
+  subscriptions[1].options.onError(undefined);
+  assert.equal(sent.at(-1).WX_CLEAR, 1);
 
   await page({CFG_USE_WEATHER: false});
   permission = 'denied';

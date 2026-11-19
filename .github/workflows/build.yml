@@ -76,6 +76,39 @@ jobs:
           mkdir -p dist
           cp build/*.pbw "dist/astroslop-${{ steps.meta.outputs.version }}.pbw"
 
+      - name: Build debug mode (not published)
+        run: pebble build -- --mode=debug
+
+      - name: Verify release and debug package identities
+        run: |
+          python3 - <<'PY'
+          import glob
+          import json
+          import zipfile
+
+          with open("package.json", encoding="utf-8") as package_file:
+              project = json.load(package_file)["pebble"]
+          release_uuid = project["uuid"]
+          release_name = project["displayName"]
+          debug_uuid = "7a86959b-99d5-4c48-b075-9ae23c165744"
+
+          def appinfo_from(pattern):
+              paths = glob.glob(pattern)
+              if len(paths) != 1:
+                  raise SystemExit(f"Expected one PBW at {pattern}, found {len(paths)}")
+              with zipfile.ZipFile(paths[0]) as pbw:
+                  return json.loads(pbw.read("appinfo.json"))
+
+          release = appinfo_from("dist/*.pbw")
+          debug = appinfo_from("build/*.pbw")
+          for field in ("uuid", "shortName", "longName", "displayName"):
+              if release[field] != (release_uuid if field == "uuid" else release_name):
+                  raise SystemExit(f"Release {field} is incorrect: {release[field]}")
+              expected = debug_uuid if field == "uuid" else f"{release_name} Debug"
+              if debug[field] != expected:
+                  raise SystemExit(f"Debug {field} is incorrect: {debug[field]}")
+          PY
+
       - uses: actions/upload-artifact@v4
         with:
           name: pbw

@@ -1,5 +1,7 @@
 #include "settings.h"
 
+#include "../logging.h"
+
 #include <string.h>
 
 #define SETTINGS_KEY 1
@@ -55,7 +57,7 @@ void settings_load(Settings *settings) {
   Settings saved;
   int read = persist_read_data(SETTINGS_KEY, &saved, sizeof(saved));
   if (read != (int)sizeof(saved) || !valid(&saved)) {
-    APP_LOG(APP_LOG_LEVEL_WARNING, "Invalid saved settings; using defaults");
+    ASTRO_LOG(APP_LOG_LEVEL_WARNING, "Invalid saved settings; using defaults");
     return;
   }
   *settings = saved;
@@ -69,7 +71,7 @@ bool settings_apply(Settings *settings, DictionaryIterator *iterator) {
     if (tuple) { \
       int32_t value = tuple->value->int32; \
       if (value < (MINIMUM) || value > (MAXIMUM)) { \
-        APP_LOG(APP_LOG_LEVEL_ERROR, "Invalid setting " #KEY ": %ld", (long)value); \
+        ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Invalid setting " #KEY ": %ld", (long)value); \
         return false; \
       } \
       next.FIELD = value; \
@@ -97,7 +99,7 @@ bool settings_apply(Settings *settings, DictionaryIterator *iterator) {
     return false;
   }
   if (!valid(&next)) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Rejected unsupported settings combination");
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Rejected unsupported settings combination");
     return false;
   }
   if (memcmp(settings, &next, sizeof(next)) == 0) {
@@ -106,7 +108,7 @@ bool settings_apply(Settings *settings, DictionaryIterator *iterator) {
   *settings = next;
   int written = persist_write_data(SETTINGS_KEY, settings, sizeof(*settings));
   if (written != (int)sizeof(*settings)) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Could not persist settings: %d", written);
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not persist settings: %d", written);
   }
   return true;
 }

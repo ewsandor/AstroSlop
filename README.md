@@ -24,7 +24,8 @@ See [limitations](#limitations-and-open-issues) before using it.
   optional local weather temperature, subject to screen space.
 - High-contrast display with an invert option, a configurable red backlight on
   supported watches, and elevation and magnitude filters.
-- A timed flashlight, warning icons, a selection banner and on-watch credits.
+- A timed flashlight, warning icons and a selection banner; credits remain in
+  the phone settings.
 
 The app targets Pebble Time 2 (**emery**), Pebble 2 Duo (**flint**) and
 Pebble Round 2 (**gabbro**), as well as Pebble Time (**basalt**), Time Round
@@ -39,7 +40,6 @@ round displays may omit secondary fields.
 | Next catalog | Select |
 | Refresh GPS and weather subscription | Hold Down |
 | Toggle timed flashlight | Hold Select |
-| About and credits | Hold Up |
 
 Open the app's settings from its gear icon in the Pebble mobile app.
 The settings page uses [Clay](https://github.com/pebble-dev/clay), the SDK's
@@ -114,7 +114,16 @@ repository root, build the app:
 pebble build
 ```
 
-The package is written to `build/astroslop.pbw`.
+This builds the **release** flavor by default. To build the full-logging debug
+flavor, use:
+
+```sh
+pebble build -- --mode=debug
+```
+
+Both flavors write `build/AstroSlop.pbw`. The debug flavor has a separate app
+UUID and display name, so it can be installed alongside the store version.
+Rebuild the release flavor before publishing; CI uploads only that package.
 
 For a release, update the version in the manifest and lockfile together, without
 creating a Git tag:
@@ -123,7 +132,7 @@ creating a Git tag:
 npm version 0.1.1 --no-git-tag-version
 ```
 
-The watch and settings About screens use the version from `package.json`.
+The phone settings About section uses the version from `package.json`.
 
 The GitHub Actions workflow checks the Pebble appstore after a successful build
 and tests on pushes to `main`. If the version is new, it publishes the built
@@ -190,7 +199,7 @@ the provider's columns; register the filename in `catalogs/catalogs.json`.
 Fixed-object coordinates are J2000 degrees. IDs, names, titles, short titles
 and source descriptions must fit the watch's 31-, 63-, 39-, 23- and 127-byte
 UTF-8 limits respectively. The build validates the file and regenerates the
-watch resource, About/settings credits and [CREDITS.md](CREDITS.md) from those
+watch resource, phone settings credits and [CREDITS.md](CREDITS.md) from those
 headers. Edit catalog headers rather than the generated credits document.
 
 ## Limitations and open issues
