@@ -748,10 +748,15 @@ afterward.
 
 * `JD(UT) = 2440587.5 + unix_seconds / 86400`, using UTC in place of UT1. |DUT1| < 0.9 s, which
   is at most 0.004°.
-* `JDE = JD(UT) + ΔT/86400`. For dates from 1972 onward the implementation uses a built-in leap
-  second table through 2017 (TAI−UTC = 37 s), then holds that offset constant; before 1972 it uses
-  the Espenak–Meeus historical ΔT polynomial. The built-in table must be updated if a future leap
-  second occurs.
+* `JDE = JD(UTC) + (TT−UTC)/86400`, using a fixed TT−UTC offset of 69.184 s (TAI−UTC = 37 s,
+  TT = TAI + 32.184 s). Leap seconds are intentionally not tracked: the most recent was inserted
+  at the end of 2016-12-31, and none have been announced since. CGPM Resolution 5 (2026)
+  establishes continuous UTC effective 2027-05-20, with maximum |UT1−UTC| of 3,600 s
+  ([resolution](https://www.bipm.org/en/cgpm-2026/resolution-5)). Before then, an announced leap
+  second in [IERS Bulletin C](https://hpiers.obspm.fr/iers/bul/bulc/bulletinc.dat) would require
+  updating the offset. This is a live display, not a historical tool: historical dates are
+  unsupported, setting the watch clock backwards is at the user's own risk, and dedicated tools are
+  better suited to historical research.
 * `T = (JDE − 2451545.0) / 36525` (Julian centuries). VSOP87 uses millennia, `τ = T/10`.
 
 ### 7.3 Sidereal time [Meeus Ch. 12]
@@ -1377,7 +1382,8 @@ the current clean build reports the following total footprint and remaining heap
 On Flint, `arm-none-eabi-size -A` measured `.text` at 58,840 B before this change and
 57,328 B after it (1,512 B saved); `.bss` changed from 2,800 B to 2,532 B (268 B saved).
 The SDK footprint fell by 1,788 B, from 62,564 B to 60,776 B, and free heap at load increased
-from 2,972 B to 4,760 B. These are build- and SDK-specific measurements.
+from 2,972 B to 4,760 B. These are build- and SDK-specific measurements. The effect of the fixed
+TT−UTC offset change in this branch has not yet been measured for this configuration.
 
 Catalog navigation uses shared scratch storage for its candidate and search result to avoid
 overflowing the small app stack during ephemeris calculations.

@@ -65,8 +65,10 @@ static void test_stellar_pointing(void) {
 int main(void) {
   test_stellar_pointing();
   near(astro_julian_day(0), 2440587.5, 1e-10);
-  near((astro_julian_tt(2457754.5) - 2457754.5) * 86400.0, 69.184, 0.0001);
-  near((astro_julian_tt(2457753.5) - 2457753.5) * 86400.0, 68.184, 0.0001);
+  const double utc_dates[] = {2457754.5, 2461041.5, 2461545.5};
+  for (size_t i = 0; i < sizeof(utc_dates) / sizeof(utc_dates[0]); ++i) {
+    near(astro_julian_tt(utc_dates[i]), utc_dates[i] + 69.184 / 86400.0, 1e-9);
+  }
   // Meeus chapter 12, 1987 April 10 at 0h UT.
   near(astro_gmst(2446895.5) / ASTRO_DEG, 197.693195, 0.00001);
 
