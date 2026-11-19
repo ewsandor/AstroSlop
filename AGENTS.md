@@ -155,3 +155,29 @@ pebble emu-button click up --repeat 3 --interval 100
 ## AI Code Review Guidelines
 
 - Once you think you've fulfilled the user's request, ask yourself if you see any issues with the current screenshot, and if there are any differences between the screenshot and the reference image or the user's description. If so, fix them.
+
+## Efficient Emulator Testing
+
+- Reuse the preinstalled Pebble CLI and SDK from the Copilot setup environment. Check `command -v pebble` and `pebble sdk list` before installing anything; avoid `sudo` or reinstalling dependencies unless a required tool or library is actually missing.
+- Build once for the requested mode, then reuse the running emulator for installs, screenshots, and button input. Builds for different modes overwrite the PBW in `build/`; copy each PBW to a separate temporary path before building the next mode if both must be tested.
+- In headless environments, pass `--vnc` to every emulator command. Specify the same `--emulator <platform>` on install, screenshot, logs, and button commands so they connect to the intended emulator.
+- Test every platform in `package.json`'s `targetPlatforms`, reusing the existing SDK and build outputs; prioritize visual inspection of round and small-screen captures.
+- Capture one screenshot for each materially different UI state and inspect it. Keep logs off unless needed; when checking startup or `APP_LOG`, collect only the relevant output and stop the log stream as soon as it is captured.
+- If QEMU starts but Pebble commands report `Connection refused`, check the companion logs for `OSError: [Errno 97] Address family not supported by protocol`. In IPv4-only containers, gevent may choose IPv6 for pypkjs's wildcard listener; use this temporary, untracked `sitecustomize.py` on `PYTHONPATH` for emulator commands:
+
+  ```python
+  import socket
+  import gevent.baseserver
+
+  original = gevent.baseserver._parse_address
+
+  def parse_address(address):
+      family, parsed = original(address)
+      if family == socket.AF_INET6 and not parsed[0]:
+          return socket.AF_INET, ("0.0.0.0", parsed[1])
+      return family, parsed
+
+  gevent.baseserver._parse_address = parse_address
+  ```
+
+  Remove the temporary shim after testing; do not modify product code or install additional packages for this environment-only issue.

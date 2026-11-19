@@ -52,7 +52,10 @@ def configure(ctx):
     ctx.load('pebble_sdk')
     if ctx.options.mode == 'debug':
         ctx.env.PROJECT_INFO['uuid'] = '7a86959b-99d5-4c48-b075-9ae23c165744'
-        ctx.env.PROJECT_INFO['displayName'] += ' Debug'
+        debug_name = ctx.env.PROJECT_INFO['displayName'] + ' Debug'
+        ctx.env.PROJECT_INFO['displayName'] = debug_name
+        ctx.env.PROJECT_INFO['shortName'] = debug_name
+        ctx.env.PROJECT_INFO['longName'] = debug_name
         for platform in ctx.env.TARGET_PLATFORMS:
             ctx.all_envs[platform].append_value('DEFINES', ['ASTRO_DEBUG=1'])
     else:
