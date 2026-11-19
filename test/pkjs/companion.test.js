@@ -92,7 +92,7 @@ async function main() {
   assert.equal(shown.settings.LATITUDE, '51.4778');
   assert.equal(shown.meta.userData.lastFix.latitude, 51.5);
   const configText = JSON.stringify(shown.config);
-  assert.ok(configText.includes('Astronomy Tools ' + require('../../package.json').version + '.'));
+  assert.ok(configText.includes('Telescope PushTo Guide ' + require('../../package.json').version + '.'));
   assert.match(configText, /Test source/);
   assert.match(configText, /bending of light by the atmosphere/);
   assert.match(configText, /larger numbers are dimmer/);

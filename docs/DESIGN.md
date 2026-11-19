@@ -1,4 +1,4 @@
-# Astronomy Tools — Design and As-Built Document
+# Telescope PushTo Guide — Design and As-Built Document
 
 | | |
 |---|---|
@@ -37,7 +37,8 @@ identified explicitly; this is an as-built record, not a change to the original 
 
 ## 1. Purpose and Scope
 
-Astronomy Tools is a Pebble watchapp for **visual astronomy in the field with an altitude–azimuth mount**,
+Telescope PushTo Guide (shown as **PushTo** in the watch launcher) is a Pebble
+watchapp for **visual astronomy in the field with an altitude–azimuth mount**,
 such as a Dobsonian telescope. The user selects a catalog object; the watch continuously displays
 its **azimuth and elevation** for the observer's location and current time. The user points the
 telescope with an azimuth **setting circle** and an **inclinometer**.
@@ -233,7 +234,7 @@ change the required emery, flint or gabbro targets.
 * `navigator.geolocation.getCurrentPosition` may return the last known phone position when it
   times out.
 * **Permissions.** SDK 4.44 builds use manifest version 2, where an app can use only the
-  permissions it declares in `package.json`. Astronomy Tools declares only `Location`:
+  permissions it declares in `package.json`. The app declares only `Location`:
 
   ```json
   "usesPermissions": [
@@ -651,7 +652,7 @@ sequenceDiagram
     participant PKJS as PKJS index.js
     participant Watch
 
-    User->>PhoneApp: open Astronomy Tools settings
+    User->>PhoneApp: open Telescope PushTo Guide settings
     PhoneApp->>PKJS: showConfiguration event
     PKJS->>Page: generate Clay layout and URL with current values
     User->>Page: edit settings, press Save
