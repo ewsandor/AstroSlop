@@ -1,8 +1,9 @@
 /* Clay settings page layout. Keys without a CFG_ prefix are phone-only settings. */
 'use strict';
 
-var appVersion = require('../../package.json').version;
-var appName = 'Telescope PushTo Guide';
+var appMetadata = require('../../package.json');
+var appVersion = appMetadata.version;
+var appName = appMetadata.pebble.displayName;
 
 function options(values) {
   return values.map(function(pair) { return {label: pair[1], value: String(pair[0])}; });
