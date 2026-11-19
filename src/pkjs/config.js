@@ -2,6 +2,7 @@
 'use strict';
 
 var appVersion = require('../../package.json').version;
+var appName = 'Telescope PushTo Guide';
 
 function options(values) {
   return values.map(function(pair) { return {label: pair[1], value: String(pair[0])}; });
@@ -21,7 +22,7 @@ module.exports = function(page) {
     return '<li>' + escapeHtml(credit.title + ': ' + credit.source + ' (' + credit.license + ')') +
       '</li>';
   }).join('');
-  var config = [{type: 'heading', defaultValue: 'Astronomy Tools'}];
+  var config = [{type: 'heading', defaultValue: appName}];
   if (page.notice) config.push({type: 'text', defaultValue: page.notice});
   return config.concat([
     {type: 'section', items: [
@@ -93,7 +94,7 @@ module.exports = function(page) {
     {type: 'section', items: [
       {type: 'heading', defaultValue: 'About'},
       {type: 'text', defaultValue:
-       '<p>Astronomy Tools ' + escapeHtml(appVersion) +
+       '<p>' + appName + ' ' + escapeHtml(appVersion) +
        '. Minor-planet elements cover 2026-2036.</p>' +
        '<p>Algorithms: Meeus; VSOP87/IMCCE; NASA/JPL Horizons and SBDB. ' +
        'Icons: Pebble iconography, Apache-2.0.</p><ul>' + credits + '</ul>' +
