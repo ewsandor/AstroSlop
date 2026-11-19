@@ -38,8 +38,11 @@ round displays may omit secondary fields.
 |---|---|
 | Previous / next object | Up / Down |
 | Next catalog | Select |
-| Refresh GPS and weather subscription | Hold Down |
-| Toggle timed flashlight | Hold Select |
+| Scroll objects on the object banner | Hold Up / Down |
+| Previous catalog on the object banner | Hold Select |
+| Dismiss the object banner | Back |
+| Refresh GPS and weather subscription on the main screen | Hold Down |
+| Toggle timed flashlight on the main screen | Hold Select |
 
 Open the app's settings from its gear icon in the Pebble mobile app.
 The settings page uses [Clay](https://github.com/pebble-dev/clay), the SDK's

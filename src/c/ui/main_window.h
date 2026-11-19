@@ -37,5 +37,6 @@ typedef struct {
 
 bool ui_init(ClickConfigProvider click_provider);
 void ui_deinit(void);
+void ui_set_click_config_provider(ClickConfigProvider click_provider);
 // The state must remain valid until the next update or ui_deinit().
 void ui_update(const ScreenState *state);

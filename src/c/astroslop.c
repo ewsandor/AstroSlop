@@ -22,6 +22,7 @@
 #define SOLAR_CACHE_SIZE 14
 #define BANNER_MS 1500
 #define NOTICE_MS 1000
+#define OBJECT_REPEAT_MS 200
 #define REFRESH_MIN_MS 1000
 #define REFRESH_MAX_MS 60000
 
@@ -92,6 +93,7 @@ static AppTimer *s_banner_timer;
 static AppTimer *s_flashlight_timer;
 static AppTimer *s_save_timer;
 static bool s_banner_active;
+static bool s_banner_controls;
 static bool s_selection_after_banner;
 static bool s_filter_notice_acknowledged;
 static bool s_filter_notice_active;
@@ -108,6 +110,7 @@ static void calculate_position(bool force);
 static void schedule_event(void);
 static void schedule_refresh(void);
 static void show_selection_banner(void);
+static void click_provider(void *context);
 
 static void cancel_timer(AppTimer **timer) {
   if (*timer) {
@@ -423,6 +426,11 @@ static void update_display(void) {
       }
     }
   }
+  bool banner_controls = s_banner_active && !s_filter_notice_active && !s_banner_message[0];
+  if (banner_controls != s_banner_controls) {
+    s_banner_controls = banner_controls;
+    ui_set_click_config_provider(click_provider);
+  }
   ui_update(&s_screen);
 }
 
@@ -628,6 +636,7 @@ static void cycle_object(int direction) {
   }
   activate_object(&s_search);
   save_selection_later();
+  if (s_banner_controls) s_search.notices.ignored_elevation = false;
   show_filter_banner(s_search.notices);
 }
 
@@ -683,14 +692,14 @@ static void down_click(ClickRecognizerRef recognizer, void *context) {
   cycle_object(1);
 }
 
-static void select_click(ClickRecognizerRef recognizer, void *context) {
-  (void)recognizer; (void)context;
+static void cycle_catalog(int direction) {
   if (s_filter_notice_active) return;
   if (!s_catalogs_ready) return;
   cancel_timer(&s_save_timer);
   save_selection(NULL);
   FilterNotices notices = {0};
-  SearchStatus status = select_catalog((s_catalog_index + 1) % catalog_count(), true, &notices);
+  SearchStatus status = select_catalog((s_catalog_index + catalog_count() + direction) %
+                                       catalog_count(), true, &notices);
   if (status == SEARCH_MATCH) {
     save_selection_later();
     show_filter_banner(notices);
@@ -699,6 +708,11 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
                       status == SEARCH_FAILED ? STR_EVALUATION_FAILED :
                       STR_CATALOG_UNAVAILABLE), false);
   }
+}
+
+static void select_click(ClickRecognizerRef recognizer, void *context) {
+  (void)recognizer; (void)context;
+  cycle_catalog(1);
 }
 
 static void down_long(ClickRecognizerRef recognizer, void *context) {
@@ -710,15 +724,47 @@ static void down_long(ClickRecognizerRef recognizer, void *context) {
 
 static void select_long(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
-  toggle_flashlight();
+  if (s_banner_controls) cycle_catalog(-1);
+  else toggle_flashlight();
+}
+
+static void banner_select_down(ClickRecognizerRef recognizer, void *context) {
+  (void)recognizer; (void)context;
+  if (s_banner_controls) cancel_timer(&s_banner_timer);
+}
+
+static void banner_select_up(ClickRecognizerRef recognizer, void *context) {
+  (void)recognizer; (void)context;
+  if (s_banner_controls && !s_banner_timer) show_selection_banner();
+}
+
+static void banner_back(ClickRecognizerRef recognizer, void *context) {
+  (void)recognizer; (void)context;
+  cancel_timer(&s_banner_timer);
+  s_banner_active = false;
+  s_selection_after_banner = false;
+  update_display();
+}
+
+static void main_back(ClickRecognizerRef recognizer, void *context) {
+  (void)recognizer; (void)context;
+  window_stack_pop(true);
 }
 
 static void click_provider(void *context) {
   (void)context;
-  window_single_click_subscribe(BUTTON_ID_UP, up_click);
-  window_single_click_subscribe(BUTTON_ID_DOWN, down_click);
+  if (s_banner_controls) {
+    window_single_repeating_click_subscribe(BUTTON_ID_UP, OBJECT_REPEAT_MS, up_click);
+    window_single_repeating_click_subscribe(BUTTON_ID_DOWN, OBJECT_REPEAT_MS, down_click);
+    window_single_click_subscribe(BUTTON_ID_BACK, banner_back);
+    window_raw_click_subscribe(BUTTON_ID_SELECT, banner_select_down, banner_select_up, NULL);
+  } else {
+    window_single_click_subscribe(BUTTON_ID_UP, up_click);
+    window_single_click_subscribe(BUTTON_ID_DOWN, down_click);
+    window_single_click_subscribe(BUTTON_ID_BACK, main_back);
+    window_long_click_subscribe(BUTTON_ID_DOWN, 700, down_long, NULL);
+  }
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
-  window_long_click_subscribe(BUTTON_ID_DOWN, 700, down_long, NULL);
   window_long_click_subscribe(BUTTON_ID_SELECT, 700, select_long, NULL);
 }
 

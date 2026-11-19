@@ -416,6 +416,10 @@ void ui_deinit(void) {
   s_screen = NULL;
 }
 
+void ui_set_click_config_provider(ClickConfigProvider click_provider) {
+  if (s_window) window_set_click_config_provider(s_window, click_provider);
+}
+
 void ui_update(const ScreenState *state) {
   if (!state) return;
   set_icon_theme(state->inverted);
