@@ -76,7 +76,7 @@ static bool read_string(const Catalog *catalog, uint16_t string_offset,
 }
 
 bool catalog_open(uint8_t index, Catalog *catalog) {
-  uint8_t directory[12], header[20];
+  uint8_t directory[12], header[16];
   if (!catalog || index >= s_count ||
       !catalog_resource_read(s_pack, 8u + index * 12u, directory, sizeof(directory))) {
     return false;
@@ -103,8 +103,7 @@ bool catalog_open(uint8_t index, Catalog *catalog) {
                                 catalog->count * catalog->record_size ||
       !read_string(catalog, u16(header + 12), catalog->title, sizeof(catalog->title)) ||
       !read_string(catalog, u16(header + 14), catalog->short_title,
-                   sizeof(catalog->short_title)) ||
-      !read_string(catalog, u16(header + 16), catalog->credit, sizeof(catalog->credit))) {
+                   sizeof(catalog->short_title))) {
     return false;
   }
   return true;

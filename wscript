@@ -24,11 +24,10 @@ def generate_resources():
         catalog_files = json.load(registry_file)['catalogs']
     generators = [
         ('tools/build_catalogs.py',
-         ['resources/generated/catalogs.bin', 'resources/generated/catalog_credits.inc',
-          'resources/generated/catalog_credits.json', 'CREDITS.md'],
+         ['resources/generated/catalogs.bin', 'resources/generated/catalog_credits.json',
+          'CREDITS.md'],
          ['catalogs/catalogs.json'] + [os.path.join('catalogs', name) for name in catalog_files],
-         ['--about-header', 'resources/generated/catalog_credits.inc',
-          '--credits-json', 'resources/generated/catalog_credits.json',
+         ['--credits-json', 'resources/generated/catalog_credits.json',
           '--credits-md', 'CREDITS.md']),
         ('tools/build_ephemeris.py', ['resources/generated/ephemeris.bin'],
          ['ephemeris/minor_planets.csv'] +
@@ -41,21 +40,6 @@ def generate_resources():
         newest = max(os.path.getmtime(path) for path in [script] + inputs)
         if any(not os.path.exists(path) or os.path.getmtime(path) < newest for path in outputs):
             subprocess.check_call([sys.executable, script, '--output', outputs[0]] + extra_args)
-
-    with open('package.json', encoding='utf-8') as manifest:
-        version = json.load(manifest)['version']
-    if not isinstance(version, str):
-        raise ValueError('package.json version must be a string')
-    version_header = 'resources/generated/app_version.inc'
-    contents = '#define APP_VERSION {}\n'.format(json.dumps(version))
-    current_contents = None
-    if os.path.exists(version_header):
-        with open(version_header, encoding='utf-8') as existing:
-            current_contents = existing.read()
-    if current_contents != contents:
-        with open(version_header, 'w', encoding='utf-8') as output:
-            output.write(contents)
-
 
 def configure(ctx):
     """

@@ -1,8 +1,9 @@
-# Astronomy Tools
+# Telescope PushTo Guide
 
-Astronomy Tools is a Pebble watchapp for visual astronomy with an altitude-azimuth
-mount, such as a Dobsonian telescope. It shows where to point a telescope using
-a setting circle and an inclinometer.
+Telescope PushTo Guide is a Pebble watchapp for visual astronomy. It shows the
+live altitude and azimuth of your target so you can aim a Dobsonian or other
+manual alt-az telescope with a setting circle and an angle gauge. No motors or
+encoders are required. On the watch, look for **PushTo** beside the telescope icon.
 
 **Status:** Initial implementation; hardware validation remains outstanding.
 See [limitations](#limitations-and-open-issues) before using it.
@@ -22,7 +23,8 @@ See [limitations](#limitations-and-open-issues) before using it.
   optional local weather temperature, subject to screen space.
 - High-contrast display with an invert option, a configurable red backlight on
   supported watches, and elevation and magnitude filters.
-- A timed flashlight, warning icons, a selection banner and on-watch credits.
+- A timed flashlight, warning icons and a selection banner; credits remain in
+  the phone settings.
 
 The app targets Pebble Time 2 (**emery**), Pebble 2 Duo (**flint**) and
 Pebble Round 2 (**gabbro**), as well as Pebble Time (**basalt**), Time Round
@@ -37,9 +39,8 @@ round displays may omit secondary fields.
 | Next catalog | Select |
 | Refresh GPS and weather subscription | Hold Down |
 | Toggle timed flashlight | Hold Select |
-| About and credits | Hold Up |
 
-Change settings from the gear icon next to Astronomy Tools in the Pebble mobile app.
+Open the app's settings from its gear icon in the Pebble mobile app.
 The settings page uses [Clay](https://github.com/pebble-dev/clay), the SDK's
 recommended configuration framework; changes apply when you tap **Save**. The
 elevation filter is enabled at 0° by default; disable it to browse objects below the horizon. On watches with
@@ -130,7 +131,7 @@ creating a Git tag:
 npm version 0.1.1 --no-git-tag-version
 ```
 
-The watch and settings About screens use the version from `package.json`.
+The phone settings About section uses the version from `package.json`.
 
 The GitHub Actions workflow checks the Pebble appstore after a successful build
 and tests on pushes to `main`. If the version is new, it publishes the built
@@ -140,6 +141,11 @@ Create the listing in the Pebble Developer Dashboard first, authorize
 the environment variable `APPSTORE_APP_ID` to the listing ID. Configure the
 environment to allow the `main` branch and require a reviewer if approval is
 wanted. Without a reviewer, a new version can be published automatically.
+
+Set the listing's **App Name** to **Telescope PushTo Guide** in the
+[Pebble Developer Dashboard](https://developer.repebble.com/dashboard).
+The release upload does not rename the listing. The watch launcher label
+is **PushTo**, set by `pebble.displayName` in `package.json`.
 
 Pushing a matching `vX.Y.Z` tag separately creates a GitHub Release; tags do not
 publish to the Pebble appstore. Versions already returned by the appstore's
@@ -157,7 +163,7 @@ pebble login  # needed once
 pebble install --cloudpebble build/astroslop.pbw
 ```
 
-Allow Astronomy Tools access to your phone's location when prompted.
+Allow the app access to your phone's location when prompted.
 
 ### Run in an emulator
 
@@ -192,7 +198,7 @@ the provider's columns; register the filename in `catalogs/catalogs.json`.
 Fixed-object coordinates are J2000 degrees. IDs, names, titles, short titles
 and source descriptions must fit the watch's 31-, 63-, 39-, 23- and 127-byte
 UTF-8 limits respectively. The build validates the file and regenerates the
-watch resource, About/settings credits and [CREDITS.md](CREDITS.md) from those
+watch resource, phone settings credits and [CREDITS.md](CREDITS.md) from those
 headers. Edit catalog headers rather than the generated credits document.
 
 ## Limitations and open issues

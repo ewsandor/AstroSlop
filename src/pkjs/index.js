@@ -311,7 +311,7 @@ var clay = new Clay(buildConfig({catalogCredits: catalogCredits}), settingsPageS
                     {autoHandleEvents: false});
 
 function permissionNotice(state) {
-  if (state === 'denied') return 'Location permission is off for Astronomy Tools; GPS and weather are unavailable.';
+  if (state === 'denied') return 'Location permission is off for this app; GPS and weather are unavailable.';
   if (state === 'prompt') return 'Allow Location in the Pebble app if prompted.';
   return '';
 }
