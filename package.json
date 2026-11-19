@@ -8,7 +8,7 @@
     "@rebble/clay": "^1.1.0"
   },
   "pebble": {
-    "displayName": "PushTo",
+    "displayName": "PushTo Guide",
     "uuid": "0f463d47-47e7-46f1-a7d6-94590ffc001d",
     "sdkVersion": "3",
     "enableMultiJS": true,
