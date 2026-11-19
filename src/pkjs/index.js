@@ -136,6 +136,12 @@ function clearWeather() {
   send({WX_CLEAR: 1});
 }
 
+function errorDescription(error) {
+  if (!error) return 'unknown error';
+  return (error.code === undefined ? 'unknown' : error.code) +
+    (error.message ? ' ' + error.message : '');
+}
+
 function unsubscribeWeather() {
   if (subscription) {
     subscription.unsubscribe();
@@ -189,7 +195,7 @@ function subscribeWeather() {
       });
     },
     onError: function(error) {
-      console.log('Weather unavailable: ' + error.code + ' ' + error.message);
+      console.log('Weather unavailable: ' + errorDescription(error));
       clearWeather();
     }
   });
@@ -252,7 +258,7 @@ function requestLocation(forced) {
     sendFix(fix, 0);
   }, function(error) {
     if (generation !== requestGeneration) return;
-    console.log('Phone geolocation failed: ' + error.code + ' ' + error.message);
+    console.log('Phone geolocation failed: ' + errorDescription(error));
     permissionState().then(function(state) {
       if (generation !== requestGeneration) return;
       send({LOC_ERROR: state === 'denied' ? 2 : state === 'prompt' ? 1 : 3});
