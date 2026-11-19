@@ -37,8 +37,8 @@ identified explicitly; this is an as-built record, not a change to the original 
 
 ## 1. Purpose and Scope
 
-Telescope PushTo Guide (shown as **PushTo** in the watch launcher) is a Pebble
-watchapp for **visual astronomy in the field with an altitude–azimuth mount**,
+Telescope PushTo Guide (shown as **PushTo Guide** in the watch launcher) is a
+Pebble watchapp for **visual astronomy in the field with an altitude–azimuth mount**,
 such as a Dobsonian telescope. The user selects a catalog object; the watch continuously displays
 its **azimuth and elevation** for the observer's location and current time. The user points the
 telescope with an azimuth **setting circle** and an **inclinometer**.
