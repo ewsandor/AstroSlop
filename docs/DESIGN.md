@@ -100,7 +100,7 @@ design intent is retained where it differs.
 | CAT-3 | **Brightest Stars**: the 100 brightest stars, brightest first | ✅ | §8.5 |
 | CAT-4 | **Messier**: the 110 objects, in order M1…M110 | ✅ | §8.5 |
 | CAT-5 | **IAU Constellations**: the centers of all 88 | ✅ | §8.5 |
-| CAT-6 | Catalogs stored on the watch if they fit | ✅ packed on watch; 10,073-byte catalog pack | §8.3 |
+| CAT-6 | Catalogs stored on the watch if they fit | ✅ packed on watch; 9,785-byte catalog pack | §8.3 |
 | CAT-7 | Extendable: a catalog file plus a registration step | ✅ CSV + one line in `catalogs.json` | §8.2 |
 | CAT-8 | Future: imported files, favorites, observation plans, dynamic catalogs | 🔮 extension points defined | §15 |
 
@@ -146,8 +146,6 @@ design intent is retained where it differs.
 | UX-9 | Configure the app in the Pebble mobile app, with an "Advanced" section | ⚠️ implemented with Clay and an explicit Save action, not the proposed bundled `configPage` | §3.5, §10.1 |
 | UX-10 | en_US by default; use a localization mechanism | ⚠️ English string lookup exists; SDK locale-framework integration and additional locales are not implemented | §11 |
 | UX-11 | Long-press Select toggles a configurable timed flashlight (1, 2, 5 or 10 min; default 5 min). Enabled by default on emery, disabled elsewhere. | ✅ white light on non-emery models | §6.8, §9.9 |
-| UX-12 | Provide an on-watch About and Credits screen, opened with long-press Up | ✅ | §9.10 |
-
 ### 2.7 Non-functional (in priority order)
 
 | ID | Requirement | How it is addressed |
@@ -369,7 +367,7 @@ callbacks. The astronomy files are portable C and do not include `pebble.h`.
 │ state · navigation · tick/event/location callbacks · timers         │
 ├───────────────────────────────────────────────────────────────────┤
 │ UI                         src/c/ui/main_window.c                   │
-│ custom canvas · layouts · banners · About/credits                   │
+│ custom canvas · layouts · banners                                   │
 ├───────────────────────────────────────────────────────────────────┤
 │ SERVICES                   src/c/services/                          │
 │ settings · location · English strings                              │
@@ -400,10 +398,10 @@ The watch coordinator depends directly on the modules it orchestrates:
 | Module | Responsibility | Key API (sketch) |
 |---|---|---|
 | `src/c/astroslop.c` | `main()` and app coordinator: loads settings/resources, retains selection and calculation state, handles button/tick/AppMessage/connection events, filters, banners, flashlight and rise/set scheduling | `main()`, internal init/deinit and event handlers |
-| `src/c/ui/main_window.c` | Draws the main screen and temporary banners in a custom canvas; also creates the scrollable About window and icons | `ui_init()`, `ui_update()`, `ui_show_about()` |
+| `src/c/ui/main_window.c` | Draws the main screen and temporary banners in a custom canvas, and loads icons | `ui_init()`, `ui_update()` |
 | `src/c/services/settings.c` | Settings defaults, validation, persistence and updates from AppMessage | `settings_load()`, `settings_apply()` |
 | `src/c/services/location.c` | Persisted fix, request lifecycle, timeout/retry/hourly timers, connection handling and warning state | `location_init()`, `location_request()`, `location_observer()` |
-| `src/c/services/l10n.c` | Small English string table and generated catalog-credit insertion | `l10n(StringId)` |
+| `src/c/services/l10n.c` | Small English string table | `l10n(StringId)` |
 | `src/c/catalog/catalog.c` | Reads catalog directory/records on demand, decodes fixed/body entries, dispatches to fixed-object or solar-system calculations | `catalog_init()`, `catalog_open()`, `catalog_object()`, `catalog_apparent()` |
 | `src/c/astro/astro.c` | Julian dates, ΔT, sidereal time, fixed-object apparent place, horizontal coordinates, parallax and refraction | `astro_*()` |
 | `src/c/astro/ephemeris.c` | VSOP87D, Moon, Pluto and minor-body calculations from a callback-read binary resource | `astro_ephemeris_init()`, `astro_ephemeris_position()` |
@@ -474,7 +472,7 @@ sequenceDiagram
     M->>BL: backlight_apply - emery tint, flashlight OFF
     M->>R: catalog_init - validate catalog pack
     M->>M: open ephemeris resource and restore catalog/object selection
-    M->>UI: ui_init - create main canvas and About window
+    M->>UI: ui_init - create main canvas
     M->>OS: open AppMessage, initialize location, subscribe connection and tick
     OS-->>JS: start PKJS
     JS->>JS: ready event, read settings from localStorage
@@ -683,8 +681,6 @@ stateDiagram-v2
     Main --> Banner: object or catalog changed, banner enabled
     Banner --> Main: 1.5 s timeout
     Banner --> Banner: Up, Down or Select click - navigate, restart timer
-    Main --> About: long-press Up
-    About --> Main: Back
     Main --> [*]: Back - exit app, flashlight off
 ```
 
@@ -800,7 +796,8 @@ bytes in the current build). The fetch script accepts `--epoch-step-days` (defau
 watch does not need code changes when the table is rebuilt. The table stays in resource flash.
 When a minor planet is selected, only the nearest 56-byte record is read with
 `resource_load_byte_range`. Outside the table's epochs, the nearest endpoint is used and the
-calculation is flagged/logged; the app About text reports the nominal 2026–2036 coverage.
+calculation is flagged/logged; the phone settings About page reports the nominal 2026–2036
+coverage.
 
 **Topocentric parallax** [Meeus Ch. 40] is applied in the fast path. It uses the observer's
 ρ sin φ′ and ρ cos φ′ (from latitude and elevation, Ch. 11) and the body's distance Δ. It matters
@@ -940,8 +937,8 @@ accurate to that precision. In practice, mount, setting-circle and leveling erro
 
 3. Run `pebble build`. `wscript` calls `tools/build_catalogs.py`, which validates the data (ranges,
    duplicates, encoding and required header metadata) and regenerates `resources/catalogs.bin`.
-   **No C code changes are needed.** The source metadata also feeds the About screen and
-   `CREDITS.md`.
+   **No C code changes are needed.** The source metadata also feeds the phone settings About page
+   and `CREDITS.md`.
 
 ### 8.3 Binary pack format (version 1, little-endian, packed)
 
@@ -951,9 +948,9 @@ CatalogDirEntry  { uint32 offset; uint32 length; uint8 provider; uint8 flags; ui
 
 Catalog blob (at offset):
   CatalogHeader  { uint16 count; uint16 record_size; uint32 records_off; uint32 strings_off;
-                   uint16 title_str; uint16 short_title_str; uint16 credit_str; uint16 reserved; }
+                   uint16 title_str; uint16 short_title_str; }  (16 bytes)
   Records        record_size × count
-  String table   UTF-8, NUL-terminated; referenced by uint16 offsets
+  String table   UTF-8, NUL-terminated; referenced by uint16 offsets; no source-credit string
 
 FixedRecord (20 bytes)            — provider = FIXED
   int32  ra_mas          J2000 RA in milliarcseconds  (0 … 1 296 000 000)
@@ -975,7 +972,7 @@ BodyRecord (16 bytes)             — provider = SOLAR_SYSTEM
 
 The catalog layout is implemented in `tools/build_catalogs.py` and decoded in
 `src/c/catalog/catalog.c`; the format definitions are mirrored, not generated from a shared header.
-The current catalog pack is **10,073 bytes**.
+The current catalog pack is **9,785 bytes**.
 
 The ephemeris pack is version 2, little-endian. Its 44-byte header stores the magic/version,
 planet/axis/power counts, minor-body count and epoch metadata, VSOP directory offset, minor-body
@@ -1058,7 +1055,7 @@ the object where the user left each catalog.
 * No menus on the watch. All configuration is done on the phone.
 * Layout metrics and drawing are in `src/c/ui/main_window.c`, selected per platform at compile time
   (`PBL_DISPLAY_WIDTH/HEIGHT`, `PBL_ROUND`). The main screen and banner share a custom canvas layer;
-  the About screen uses a scroll layer. Fine-tuning is done from emulator screenshots.
+  icons are loaded as bitmaps. Fine-tuning is done from emulator screenshots.
 
 ### 9.2 Main screen — Pebble Time 2 (emery, 200×228)
 
@@ -1211,23 +1208,23 @@ events light up red.
 | **Select** (click) | Next catalog (wraps) |
 | **Select** (long press, ≥ 700 ms) | **Toggle the flashlight** on or off (short vibration; banner). Does nothing if the flashlight is disabled. |
 | **Down** (long press, ≥ 700 ms) | **Force a GPS refresh** (short vibration; "Updating location…" banner; the location icon shows while acquiring) |
-| **Up** (long press, ≥ 700 ms) | About and Credits screen (§9.10) |
-| **Back** | Exit the app (system default; the flashlight turns off), or close About |
+| **Up** (long press) | No separate long-press action; reserved for a future feature |
+| **Back** | Exit the app (system default; the flashlight turns off) |
 
-### 9.10 About and Credits (watch)
+### 9.10 About and Credits (phone)
 
-The watch About screen is a Gothic 18 `ScrollLayer`, opened with long-press Up and closed with Back.
-It shows the app version, nominal minor-planet coverage (§7.5), algorithm credits, catalog source
-credits generated from CSV metadata, and the personal/scientific-use notice (§13.2). The settings
-page also shows catalog source credits and a repository URL.
+The phone settings page retains the About section with the app version, nominal minor-planet
+coverage (§7.5), algorithm credits (including Sonia Keys' MIT attribution), Pebble iconography
+Apache-2.0 attribution, catalog source and license credits generated from CSV metadata, the
+personal/scientific-use notice (§13.2), and the repository URL.
 
 ### 9.11 Design mockups
 
 The following are design mockups (scale 2) with sample values, not captured runtime screenshots.
-The location icon and About content are illustrative. The Emery and Gabbro interface renderings are
-also shown in the [README](../README.md#interface-mockups). All images below use the same scale; the
-top row shows required platforms and the bottom row older supported platforms. Chalk has no footer
-or temperature (§9.4); aplite is not supported (§3.2).
+The location icon and banner content are illustrative. The Emery and Gabbro interface renderings
+are also shown in the [README](../README.md#interface-mockups). All images below use the same scale;
+the top row shows required platforms and the bottom row older supported platforms. Chalk has no
+footer or temperature (§9.4); aplite is not supported (§3.2).
 
 **Main**
 
@@ -1240,10 +1237,6 @@ or temperature (§9.4); aplite is not supported (§3.2).
 **Banner**
 
 ![Banner on all platforms](images/sheets/banner.png)
-
-**About**
-
-![About on all platforms](images/sheets/about.png)
 
 **0.01° mode**
 
@@ -1374,12 +1367,17 @@ the current clean build reports the following total footprint and remaining heap
 
 | Platform | RAM limit | Total footprint | Free heap at load |
 |---|---:|---:|---:|
-| flint | 64 KB | 61,432 B | 4,104 B |
-| basalt | 64 KB | 61,324 B | 4,212 B |
-| diorite | 64 KB | 61,324 B | 4,212 B |
-| chalk | 64 KB | 60,988 B | 4,548 B |
-| emery | 128 KB | 61,480 B | 69,592 B |
-| gabbro | 128 KB | 61,440 B | 69,632 B |
+| flint | 64 KB | 60,776 B | 4,760 B |
+| basalt | 64 KB | 60,668 B | 4,868 B |
+| diorite | 64 KB | 60,668 B | 4,868 B |
+| chalk | 64 KB | 60,308 B | 5,228 B |
+| emery | 128 KB | 60,832 B | 70,240 B |
+| gabbro | 128 KB | 60,744 B | 70,328 B |
+
+On Flint, `arm-none-eabi-size -A` measured `.text` at 58,840 B before this change and
+57,328 B after it (1,512 B saved); `.bss` changed from 2,800 B to 2,532 B (268 B saved).
+The SDK footprint fell by 1,788 B, from 62,564 B to 60,776 B, and free heap at load increased
+from 2,972 B to 4,760 B. These are build- and SDK-specific measurements.
 
 Catalog navigation uses shared scratch storage for its candidate and search result to avoid
 overflowing the small app stack during ephemeris calculations.
@@ -1391,9 +1389,9 @@ firmware-specific. The 64 KB targets have a tight heap budget; further growth re
 
 | Resources | Measured size |
 |---|---|
-| `catalogs.bin` | 10,073 B |
+| `catalogs.bin` | 9,785 B |
 | `ephemeris.bin` (VSOP87D + Moon/Pluto coefficients + 4 × 68 minor-body records) | 109,240 B |
-| `app_resources.pbpack` (all registered app resources, including icons) | 124,331 B |
+| `app_resources.pbpack` (all registered app resources, including icons) | 124,227 B |
 | Pebble resource limit | 256 KB |
 
 ### 12.3 Power
@@ -1427,7 +1425,7 @@ firmware-specific. The 64 KB targets have a tight heap budget; further growth re
 `@rebble/clay` 1.1.0 is a PKJS dependency used to generate the mobile settings page. The watch
 application has no third-party runtime library.
 
-### 13.2 Data and asset sources (acknowledged in About and `CREDITS.md`)
+### 13.2 Data and asset sources (acknowledged in phone About and `CREDITS.md`)
 
 | Data | Source |
 |---|---|
@@ -1445,14 +1443,14 @@ application has no third-party runtime library.
 | Status icons | PebbleOS and Rebble icons from Pebble iconography |
 | Settings UI | Clay for Pebble (`@rebble/clay`) |
 
-The watch About text acknowledges bundled data sources and states: "Catalog data for personal and
-scientific use only; review source terms." Catalog source text is generated from metadata in the
-registered CSV files.
+The phone About page acknowledges bundled data sources and states: "Catalog data are for personal
+and scientific use only; review each source's terms." Catalog source text and stated terms are
+generated from metadata in the registered CSV files.
 
 ### 13.3 Code and credits
 
-The application code is MIT-licensed. Source acknowledgements are shown on the watch and in
-`CREDITS.md`.
+The application code is MIT-licensed. Source acknowledgements are shown in the phone settings and
+in `CREDITS.md`.
 
 ---
 

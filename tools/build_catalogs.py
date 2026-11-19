@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PACK_HEADER = struct.Struct("<4sBBH")
 DIRECTORY_ENTRY = struct.Struct("<IIBBH")
-CATALOG_HEADER = struct.Struct("<HHIIHHHH")
+CATALOG_HEADER = struct.Struct("<HHIIHH")
 FIXED_RECORD = struct.Struct("<iihhhBBHH")
 BODY_RECORD = struct.Struct("<BBHH10x")
 UNKNOWN_MAGNITUDE = -32768
@@ -93,7 +93,6 @@ def _compile_catalog(path):
 
     title = intern(metadata["title"])
     short_title = intern(metadata["short_title"])
-    credit = intern(metadata["source"])
     provider = metadata["provider"]
     record_format = FIXED_RECORD if provider == "fixed" else BODY_RECORD
     records = bytearray()
@@ -141,20 +140,11 @@ def _compile_catalog(path):
     strings_offset = records_offset + len(records)
     header = CATALOG_HEADER.pack(
         len(rows), record_format.size, records_offset, strings_offset,
-        title, short_title, credit, 0)
+        title, short_title)
     return PROVIDERS[provider], header + records + strings
 
 
-def _write_credits(metadata, header_path, json_path, markdown_path):
-    if header_path:
-        lines = [
-            json.dumps(f"{item['title']}: {item['source']}\n\n", ensure_ascii=False)
-            for item in metadata
-        ]
-        header = "/* Generated from catalog metadata. */\n#define CATALOG_CREDITS \\\n"
-        header += " \\\n".join("  " + line for line in lines) + "\n"
-        Path(header_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(header_path).write_text(header, encoding="utf-8")
+def _write_credits(metadata, json_path, markdown_path):
     if json_path:
         credits = [{key: item[key] for key in ("title", "source", "license")}
                    for item in metadata]
@@ -216,7 +206,7 @@ for further source references.
         Path(markdown_path).write_text(document, encoding="utf-8")
 
 
-def build(registry_path, output_path, header_path=None, json_path=None, markdown_path=None):
+def build(registry_path, output_path, json_path=None, markdown_path=None):
     registry_path = Path(registry_path)
     registry = json.loads(registry_path.read_text(encoding="utf-8"))
     names = registry.get("catalogs")
@@ -238,9 +228,9 @@ def build(registry_path, output_path, header_path=None, json_path=None, markdown
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_bytes(PACK_HEADER.pack(b"ASCP", 1, len(catalogs), 0) +
                             entries + blobs)
-    if header_path or json_path or markdown_path:
+    if json_path or markdown_path:
         metadata = [_read_catalog(registry_path.parent / name)[0] for name in names]
-        _write_credits(metadata, header_path, json_path, markdown_path)
+        _write_credits(metadata, json_path, markdown_path)
     return len(catalogs), offset
 
 
@@ -248,13 +238,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--registry", type=Path, default=ROOT / "catalogs/catalogs.json")
     parser.add_argument("--output", type=Path, default=ROOT / "resources/catalogs.bin")
-    parser.add_argument("--about-header", type=Path)
     parser.add_argument("--credits-json", type=Path)
     parser.add_argument("--credits-md", type=Path)
     args = parser.parse_args()
     try:
-        count, size = build(args.registry, args.output, args.about_header,
-                            args.credits_json, args.credits_md)
+        count, size = build(args.registry, args.output, args.credits_json, args.credits_md)
     except (OSError, ValueError, json.JSONDecodeError, struct.error) as exc:
         parser.exit(1, f"catalog build failed: {exc}\n")
     print(f"Built {count} catalogs ({size} bytes): {args.output}")

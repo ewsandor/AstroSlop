@@ -41,8 +41,8 @@ class CatalogBuilderTests(unittest.TestCase):
         offset, length, provider, _, _ = struct.unpack_from("<IIBBH", pack, 8)
         self.assertEqual(provider, 0)
         self.assertEqual(offset + length, len(pack))
-        count, size, records, strings, title, _, _, _ = struct.unpack_from(
-            "<HHIIHHHH", pack, offset)
+        count, size, records, strings, title, _ = struct.unpack_from(
+            "<HHIIHH", pack, offset)
         self.assertEqual((count, size), (1, 20))
         record = struct.unpack_from("<iihhhBBHH", pack, offset + records)
         self.assertEqual(record[:7], (45000000, -108000000, 4, -5, -32768, 0, 0))
@@ -50,6 +50,7 @@ class CatalogBuilderTests(unittest.TestCase):
         self.assertEqual(table[title:].split(b"\0", 1)[0], b"Test catalog")
         self.assertEqual(table[record[7]:].split(b"\0", 1)[0], b"A")
         self.assertEqual(table[record[8]:].split(b"\0", 1)[0], b"Alpha")
+        self.assertNotIn(b"Test source", table)
 
     def test_rejects_invalid_coordinates_and_duplicates(self):
         with self.assertRaisesRegex(ValueError, "ra_deg"):
@@ -68,12 +69,10 @@ class CatalogBuilderTests(unittest.TestCase):
 
     def test_registered_source_metadata_is_used_for_credits(self):
         self.catalog.write_text(HEADER + "A,,1,0,,,,star\n", encoding="utf-8")
-        header = self.root / "generated" / "credits.inc"
         companion = self.root / "generated" / "credits.json"
         document = self.root / "CREDITS.md"
         builder.build(self.root / "catalogs.json", self.root / "pack.bin",
-                      header, companion, document)
-        self.assertIn("Test catalog: Test source", header.read_text(encoding="utf-8"))
+                      companion, document)
         self.assertEqual(json.loads(companion.read_text(encoding="utf-8")), [{
             "title": "Test catalog", "source": "Test source", "license": "CC0-1.0"
         }])
