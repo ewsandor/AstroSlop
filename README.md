@@ -3,7 +3,8 @@
 Telescope PushTo Guide is a Pebble watchapp for visual astronomy. It shows the
 live altitude and azimuth of your target so you can aim a Dobsonian or other
 manual alt-az telescope with a setting circle and an angle gauge. No motors or
-encoders are required. On the watch, look for **PushTo** beside the telescope icon.
+encoders are required. On the watch, look for **PushTo Guide** beside the
+telescope icon.
 
 **Status:** Initial implementation; hardware validation remains outstanding.
 See [limitations](#limitations-and-open-issues) before using it.
@@ -145,7 +146,7 @@ wanted. Without a reviewer, a new version can be published automatically.
 Set the listing's **App Name** to **Telescope PushTo Guide** in the
 [Pebble Developer Dashboard](https://developer.repebble.com/dashboard).
 The release upload does not rename the listing. The watch launcher label
-is **PushTo**, set by `pebble.displayName` in `package.json`.
+is **PushTo Guide**, set by `pebble.displayName` in `package.json`.
 
 Pushing a matching `vX.Y.Z` tag separately creates a GitHub Release; tags do not
 publish to the Pebble appstore. Versions already returned by the appstore's

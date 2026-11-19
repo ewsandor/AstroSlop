@@ -1,11 +1,18 @@
 #include "astro.h"
 
 #include <math.h>
-#include <stddef.h>
 
 #define TWO_PI (2.0 * ASTRO_PI)
 #define ARCSEC (ASTRO_DEG / 3600.0)
 #define AU_KM 149597870.7
+
+// TAI-UTC = 37 s (last leap second at the end of 2016-12-31; none announced
+// since, checked 2026-11-18); TT = TAI + 32.184 s.
+// CGPM Resolution 5 (2026) makes UTC continuous from 2027-05-20, when this
+// value is final. Before then, update it if IERS Bulletin C announces a leap.
+// https://www.bipm.org/en/cgpm-2026/resolution-5
+// https://hpiers.obspm.fr/iers/bul/bulc/bulletinc.dat
+#define TT_MINUS_UTC_SECONDS 69.184
 
 double astro_wrap(double angle) {
   double result = angle - TWO_PI * floor(angle / TWO_PI);
@@ -39,66 +46,8 @@ double astro_julian_day(int64_t unix_seconds) {
   return 2440587.5 + (double)unix_seconds / 86400.0;
 }
 
-static double historical_delta_t(double jd) {
-  const double year = 2000.0 + (jd - 2451545.0) / 365.2425;
-  double t;
-  if (year < 1800.0) {
-    t = (year - 1820.0) / 100.0;
-    return -20.0 + 32.0 * t * t;
-  }
-  if (year < 1860.0) {
-    t = year - 1800.0;
-    return 13.72 + t * (-0.332447 + t * (0.0068612 +
-           t * (0.0041116 + t * (-0.00037436 + t * (0.0000121272 +
-           t * (-0.0000001699 + t * 0.000000000875))))));
-  }
-  if (year < 1900.0) {
-    t = year - 1860.0;
-    return 7.62 + t * (0.5737 + t * (-0.251754 +
-           t * (0.01680668 + t * (-0.0004473624 + t / 233174.0))));
-  }
-  if (year < 1920.0) {
-    t = year - 1900.0;
-    return -2.79 + t * (1.494119 + t * (-0.0598939 +
-           t * (0.0061966 - 0.000197 * t)));
-  }
-  if (year < 1941.0) {
-    t = year - 1920.0;
-    return 21.20 + t * (0.84493 + t * (-0.076100 + t * 0.0020936));
-  }
-  if (year < 1961.0) {
-    t = year - 1950.0;
-    return 29.07 + 0.407 * t - t * t / 233.0 + t * t * t / 2547.0;
-  }
-  t = year - 1975.0;
-  return 45.45 + 1.067 * t - t * t / 260.0 - t * t * t / 718.0;
-}
-
 double astro_julian_tt(double jd_utc) {
-  // IERS Bulletin C leap seconds; Espenak and Meeus polynomial before 1972.
-  static const struct {
-    double jd;
-    int8_t tai_utc;
-  } leaps[] = {
-    {2441317.5, 10}, {2441499.5, 11}, {2441683.5, 12}, {2442048.5, 13},
-    {2442413.5, 14}, {2442778.5, 15}, {2443144.5, 16}, {2443509.5, 17},
-    {2443874.5, 18}, {2444239.5, 19}, {2444786.5, 20}, {2445151.5, 21},
-    {2445516.5, 22}, {2446247.5, 23}, {2447161.5, 24}, {2447892.5, 25},
-    {2448257.5, 26}, {2448804.5, 27}, {2449169.5, 28}, {2449534.5, 29},
-    {2450083.5, 30}, {2450630.5, 31}, {2451179.5, 32}, {2453736.5, 33},
-    {2454832.5, 34}, {2456109.5, 35}, {2457204.5, 36}, {2457754.5, 37},
-  };
-  if (jd_utc < leaps[0].jd) {
-    return jd_utc + historical_delta_t(jd_utc) / 86400.0;
-  }
-  double delta = 0;
-  for (size_t i = 0; i < sizeof(leaps) / sizeof(leaps[0]); ++i) {
-    if (jd_utc < leaps[i].jd) {
-      break;
-    }
-    delta = leaps[i].tai_utc + 32.184;
-  }
-  return jd_utc + delta / 86400.0;
+  return jd_utc + TT_MINUS_UTC_SECONDS / 86400.0;
 }
 
 double astro_gmst(double jd_utc) {

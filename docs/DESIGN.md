@@ -37,8 +37,8 @@ identified explicitly; this is an as-built record, not a change to the original 
 
 ## 1. Purpose and Scope
 
-Telescope PushTo Guide (shown as **PushTo** in the watch launcher) is a Pebble
-watchapp for **visual astronomy in the field with an altitude–azimuth mount**,
+Telescope PushTo Guide (shown as **PushTo Guide** in the watch launcher) is a
+Pebble watchapp for **visual astronomy in the field with an altitude–azimuth mount**,
 such as a Dobsonian telescope. The user selects a catalog object; the watch continuously displays
 its **azimuth and elevation** for the observer's location and current time. The user points the
 telescope with an azimuth **setting circle** and an **inclinometer**.
@@ -748,10 +748,15 @@ afterward.
 
 * `JD(UT) = 2440587.5 + unix_seconds / 86400`, using UTC in place of UT1. |DUT1| < 0.9 s, which
   is at most 0.004°.
-* `JDE = JD(UT) + ΔT/86400`. For dates from 1972 onward the implementation uses a built-in leap
-  second table through 2017 (TAI−UTC = 37 s), then holds that offset constant; before 1972 it uses
-  the Espenak–Meeus historical ΔT polynomial. The built-in table must be updated if a future leap
-  second occurs.
+* `JDE = JD(UTC) + (TT−UTC)/86400`, using a fixed TT−UTC offset of 69.184 s (TAI−UTC = 37 s,
+  TT = TAI + 32.184 s). Leap seconds are intentionally not tracked: the most recent was inserted
+  at the end of 2016-12-31, and none have been announced since. CGPM Resolution 5 (2026)
+  establishes continuous UTC effective 2027-05-20, with maximum |UT1−UTC| of 3,600 s
+  ([resolution](https://www.bipm.org/en/cgpm-2026/resolution-5)). Before then, an announced leap
+  second in [IERS Bulletin C](https://hpiers.obspm.fr/iers/bul/bulc/bulletinc.dat) would require
+  updating the offset. This is a live display, not a historical tool: historical dates are
+  unsupported, setting the watch clock backwards is at the user's own risk, and dedicated tools are
+  better suited to historical research.
 * `T = (JDE − 2451545.0) / 36525` (Julian centuries). VSOP87 uses millennia, `τ = T/10`.
 
 ### 7.3 Sidereal time [Meeus Ch. 12]
@@ -1383,7 +1388,8 @@ to use `-Wl,--gc-sections`; the debug flavor stays non-LTO.
 Separately, removing the watch About screen and catalog-credit strings reduced the Flint `.text`
 from 58,840 B to 57,328 B and `.bss` from 2,800 B to 2,532 B. The SDK footprint fell by 1,788 B,
 from 62,564 B to 60,776 B, and free heap at load increased from 2,972 B to 4,760 B. These
-measurements are build- and SDK-specific.
+measurements are build- and SDK-specific. The effect of the fixed TT−UTC offset change in the
+current branch has not yet been measured for this configuration.
 
 GCC 14.2.1 `-fstack-usage` reports were byte-for-byte identical between the release non-LTO
 control and LTO builds on all platforms. In particular, `search_moving_event` uses 320 B,
