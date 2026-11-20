@@ -43,7 +43,7 @@ static const CoordinateFont s_coordinate_fonts[] = {
 
 static Window *s_window;
 static Layer *s_canvas;
-static GBitmap *s_icons[6];
+static GDrawCommandImage *s_icons[6];
 static const ScreenState *s_screen;
 static GFont s_value_font;
 static const CoordinateFont *s_value_metrics;
@@ -164,70 +164,59 @@ static void draw_icon(GContext *context, unsigned icon, int x, int y, int size) 
               GTextAlignmentCenter);
     return;
   }
-  graphics_context_set_compositing_mode(context, GCompOpAssign);
-  graphics_draw_bitmap_in_rect(context, s_icons[icon], GRect(x, y, size, size));
+  gdraw_command_image_draw(context, s_icons[icon], GPoint(x, y));
 }
 
-static bool invert_bitmap(GBitmap *bitmap) {
-  GBitmapFormat format = gbitmap_get_format(bitmap);
-  if (format == GBitmapFormat1Bit || format == GBitmapFormat8Bit) {
-    uint8_t *data = gbitmap_get_data(bitmap);
-    if (!data) return false;
-    size_t bytes = gbitmap_get_bytes_per_row(bitmap) * gbitmap_get_bounds(bitmap).size.h;
-    uint8_t mask = format == GBitmapFormat1Bit ? 0xff : 0x3f;
-    for (size_t i = 0; i < bytes; ++i) data[i] ^= mask;
-    return true;
-  }
-  unsigned colors = format == GBitmapFormat1BitPalette ? 2 :
-                    format == GBitmapFormat2BitPalette ? 4 :
-                    format == GBitmapFormat4BitPalette ? 16 : 0;
-  GColor *palette = colors ? gbitmap_get_palette(bitmap) : NULL;
-  if (palette) {
-    for (unsigned i = 0; i < colors; ++i) palette[i].argb ^= 0x3f;
-    return true;
-  }
-  return false;
+static GColor invert_icon_color(GColor color) {
+  if (!gcolor_equal(color, GColorClear)) color.argb ^= 0x3f;
+  return color;
+}
+
+static bool invert_icon_command(GDrawCommand *command, uint32_t index, void *context) {
+  (void)index;
+  (void)context;
+  gdraw_command_set_fill_color(command, invert_icon_color(gdraw_command_get_fill_color(command)));
+  gdraw_command_set_stroke_color(command, invert_icon_color(gdraw_command_get_stroke_color(command)));
+  return true;
+}
+
+static void invert_icon(GDrawCommandImage *image) {
+  gdraw_command_list_iterate(gdraw_command_image_get_command_list(image), invert_icon_command, NULL);
 }
 
 static void set_icon_theme(bool inverted) {
   if (s_icons_inverted == inverted) return;
   for (unsigned i = 1; i < ARRAY_LENGTH(s_icons); ++i) {
-    if (s_icons[i] && !invert_bitmap(s_icons[i])) {
-      ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not invert status icon %u", i);
-      gbitmap_destroy(s_icons[i]);
-      s_icons[i] = NULL;
-    }
+    if (s_icons[i]) invert_icon(s_icons[i]);
   }
   s_icons_inverted = inverted;
 }
 
 static void load_icon(unsigned icon) {
   if (!icon || icon >= ARRAY_LENGTH(s_icons) || s_icons[icon]) return;
-  s_icons[icon] = gbitmap_create_with_resource(s_icon_resources[icon]);
-  if (s_icons[icon] && s_icons_inverted && !invert_bitmap(s_icons[icon])) {
-    gbitmap_destroy(s_icons[icon]);
-    s_icons[icon] = NULL;
-  }
+  s_icons[icon] = gdraw_command_image_create_with_resource(s_icon_resources[icon]);
   if (!s_icons[icon]) {
     if (!(s_icon_errors & (1u << icon))) {
-      ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not load or theme status icon %u", icon);
+      ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not load status icon %u", icon);
       s_icon_errors |= 1u << icon;
     }
   } else {
+    if (s_icons_inverted) invert_icon(s_icons[icon]);
     s_icon_errors &= ~(1u << icon);
   }
 }
 
+static void unload_icon(unsigned icon) {
+  if (!s_icons[icon]) return;
+  gdraw_command_image_destroy(s_icons[icon]);
+  s_icons[icon] = NULL;
+}
+
 static void update_icons(const ScreenState *state) {
-  if (state->icon != STATUS_ICON_NONE) {
-    for (unsigned i = 1; i <= STATUS_ICON_WARNING; ++i) {
-      if (i != state->icon && s_icons[i]) {
-        gbitmap_destroy(s_icons[i]);
-        s_icons[i] = NULL;
-      }
-    }
-    load_icon(state->icon);
+  for (unsigned i = 1; i <= STATUS_ICON_WARNING; ++i) {
+    if (i != state->icon) unload_icon(i);
   }
+  load_icon(state->icon);
 #if defined(PBL_ROUND)
   bool flashlight_visible = state->flashlight && state->icon == STATUS_ICON_NONE;
 #else
@@ -235,9 +224,8 @@ static void update_icons(const ScreenState *state) {
 #endif
   if (flashlight_visible) {
     load_icon(5);
-  } else if (s_icons[5]) {
-    gbitmap_destroy(s_icons[5]);
-    s_icons[5] = NULL;
+  } else {
+    unload_icon(5);
   }
 }
 
@@ -466,8 +454,7 @@ static void window_load(Window *window) {
 static void window_unload(Window *window) {
   (void)window;
   for (unsigned i = 1; i < ARRAY_LENGTH(s_icons); ++i) {
-    if (s_icons[i]) gbitmap_destroy(s_icons[i]);
-    s_icons[i] = NULL;
+    unload_icon(i);
   }
   if (s_canvas) layer_destroy(s_canvas);
   s_canvas = NULL;

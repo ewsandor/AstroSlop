@@ -1061,7 +1061,8 @@ the object where the user left each catalog.
 * No menus on the watch. All configuration is done on the phone.
 * Layout metrics and drawing are in `src/c/ui/main_window.c`, selected per platform at compile time
   (`PBL_DISPLAY_WIDTH/HEIGHT`, `PBL_ROUND`). The main screen and banner share a custom canvas layer;
-  icons are loaded as bitmaps. Fine-tuning is done from emulator screenshots.
+  status icons are drawn as Pebble Draw Command (PDC) images. Fine-tuning is done from emulator
+  screenshots.
 
 ### 9.2 Main screen — Pebble Time 2 (emery, 200×228)
 
@@ -1182,9 +1183,22 @@ tick. That keeps the digit size stable while values change.
 * The status icon slot shows the highest-priority condition:
   **Location missing/acquiring > Clock invalid > calculation/location warning**.
   The flashlight indicator is shown next to it whenever the flashlight is on.
-* Icons come from Pebble/Rebble iconography: PebbleOS system icons, plus Rebble location icons.
-  They are bundled as PNG at 25 px (emery, gabbro) and 18 px
-  (flint, basalt, diorite, chalk).
+* Status icons are generated from the original Pebble/Rebble SVGs as PDC images at 25 px
+  (Emery, Gabbro) and 18 px (Flint, Basalt, Diorite, Chalk). Each target bundles only its
+  own size. The launcher icon remains a bitmap.
+
+To regenerate the status icons, use Python 3 and the `svg2pdc.py` converter linked from
+the [Pebble developer guide](https://developer.repebble.com/guides/app-resources/converting-svg-to-pdc/).
+The converter and SVG checkouts are only needed for regeneration, not for `pebble build`.
+
+```sh
+git clone https://github.com/pebble-dev/iconography.git lib/iconography
+git -C lib/iconography checkout --detach 27560689e947502a82dedc9354253bd85cbdc146
+git clone https://github.com/pebble-examples/cards-example.git lib/cards-example
+git -C lib/cards-example checkout --detach f61b461545bd01fd555525afc25f52377ed79bd7
+python3 -m pip install svg.path==6.3
+python3 tools/build_status_icons.py lib/iconography lib/cards-example/tools/svg2pdc.py
+```
 
 **Icon key** (shown at 3× size)
 
