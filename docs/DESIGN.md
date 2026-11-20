@@ -1061,7 +1061,8 @@ the object where the user left each catalog.
 * No menus on the watch. All configuration is done on the phone.
 * Layout metrics and drawing are in `src/c/ui/main_window.c`, selected per platform at compile time
   (`PBL_DISPLAY_WIDTH/HEIGHT`, `PBL_ROUND`). The main screen and banner share a custom canvas layer;
-  icons are loaded as bitmaps. Fine-tuning is done from emulator screenshots.
+  status icons are drawn as Pebble Draw Command (PDC) images. Fine-tuning is done from emulator
+  screenshots.
 
 ### 9.2 Main screen — Pebble Time 2 (emery, 200×228)
 
@@ -1070,9 +1071,9 @@ the object where the user left each catalog.
 | Region (y, px) | Content | Font |
 |---|---|---|
 | Status bar (0–24) | Local time (left); temperature and status icons (right) | Gothic 18 Bold; icons 25 px |
-| Label (24–56) | Catalog ID and common name, ellipsis if too long | Gothic 24 Bold |
-| Az row (56–110) | `AZ` caption at top left; value right-aligned | Gothic 18 Bold; LECO 42 |
-| El row (110–164) | `EL` caption at top left; value right-aligned, sign only if negative | Gothic 18 Bold; LECO 42 |
+| Label | Catalog ID and common name on one line; ellipsis if too long | Gothic 24 Bold |
+| Az row | `AZ` caption on the left; value right-aligned | Gothic 18 Bold; LECO 60 at 0.1°, LECO 42 at 0.01° |
+| El row | `EL` caption on the left; value right-aligned, sign only if negative | Gothic 18 Bold; same value font as Az |
 | Footer (200–228) | Next rise or set event (left); magnitude (right) | Gothic 18 |
 
 * The status icons are the flashlight-on indicator (§6.8) and the location status icon (§9.7). They
@@ -1125,9 +1126,9 @@ the object where the user left each catalog.
 | Region | flint | gabbro |
 |---|---|---|
 | Status line | Time, temperature, icons (Gothic 18 Bold; icons 18 px) | Time, temperature, one icon, centered (Gothic 18 Bold) |
-| Label | ID and name (Gothic 18 Bold) | ID and name, centered (Gothic 24 Bold) |
+| Label | ID and name (Gothic 18 Bold) | ID and name, centered on one line with ellipsis (Gothic 24 Bold) |
 | Az/El captions | Top left of each row (Gothic 14 Bold) | Centered above each value (Gothic 14 Bold) |
-| Az/El values | Right-aligned (LECO 38 Bold) | Centered (LECO 42, as on emery) |
+| Az/El values | Right-aligned (LECO 38 Bold) | Centered (LECO 60 at 0.1°, LECO 42 at 0.01°) |
 | Footer | Next event; `mag` (Gothic 18) | Next event and `Magnitude`, centered (Gothic 18) |
 
 * **Flint** shows the same information as emery, with the magnitude abbreviated to "mag". The
@@ -1141,13 +1142,18 @@ the object where the user left each catalog.
 
 ### 9.5 Font ladder (largest that fits)
 
-`layout` picks the first font in the platform's ladder whose rendered width
+All platforms distribute the space around and between the AZ/EL captions and readings using
+the catalog label and numeric font's visible height, rather than fixed row positions. With no
+footer, Chalk uses an inset from the bottom to keep the readings inside the circular display.
+The clock, temperature, and icons share a vertical center in the top status row. Where present,
+footer text is vertically centered; Gabbro centers the visible one- or two-line block.
+
+Emery and Gabbro use LECO 60 Regular at 0.1° when the widest azimuth fits, and LECO 42 otherwise, including
+at 0.01°. On other platforms the app picks the first font in the ladder whose rendered width
 (`graphics_text_layout_get_content_size`) fits the Az/El row:
 
 | Platform | Ladder (largest → smallest) |
 |---|---|
-| gabbro | LECO 42 (fits both precisions) |
-| emery | LECO 42 → LECO 38 Bold |
 | flint / basalt / diorite | LECO 38 Bold → LECO 32 Bold → LECO 28 Light |
 | chalk | LECO 38 Bold → LECO 32 Bold |
 
@@ -1177,9 +1183,22 @@ tick. That keeps the digit size stable while values change.
 * The status icon slot shows the highest-priority condition:
   **Location missing/acquiring > Clock invalid > calculation/location warning**.
   The flashlight indicator is shown next to it whenever the flashlight is on.
-* Icons come from Pebble/Rebble iconography: PebbleOS system icons, plus Rebble location icons.
-  They are bundled as PNG at 25 px (emery, gabbro) and 18 px
-  (flint, basalt, diorite, chalk).
+* Status icons are generated from the original Pebble/Rebble SVGs as PDC images at 25 px
+  (Emery, Gabbro) and 18 px (Flint, Basalt, Diorite, Chalk). Each target bundles only its
+  own size. The launcher icon remains a bitmap.
+
+To regenerate the status icons, use Python 3 and the `svg2pdc.py` converter linked from
+the [Pebble developer guide](https://developer.repebble.com/guides/app-resources/converting-svg-to-pdc/).
+The converter and SVG checkouts are only needed for regeneration, not for `pebble build`.
+
+```sh
+git clone https://github.com/pebble-dev/iconography.git lib/iconography
+git -C lib/iconography checkout --detach 27560689e947502a82dedc9354253bd85cbdc146
+git clone https://github.com/pebble-examples/cards-example.git lib/cards-example
+git -C lib/cards-example checkout --detach f61b461545bd01fd555525afc25f52377ed79bd7
+python3 -m pip install svg.path==6.3
+python3 tools/build_status_icons.py lib/iconography lib/cards-example/tools/svg2pdc.py
+```
 
 **Icon key** (shown at 3× size)
 

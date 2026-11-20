@@ -68,16 +68,16 @@
         {"type": "raw", "name": "CATALOG_PACK", "file": "generated/catalogs.bin"},
         {"type": "raw", "name": "EPHEMERIS_PACK", "file": "generated/ephemeris.bin"},
         {"type": "bitmap", "name": "APP_ICON", "file": "icons/app_icon.png", "menuIcon": true},
-        {"type": "bitmap", "name": "ICON_LOCATION_25", "file": "icons/location_25.png", "spaceOptimization": "memory"},
-        {"type": "bitmap", "name": "ICON_LOCATION_18", "file": "icons/location_18.png", "spaceOptimization": "memory"},
-        {"type": "bitmap", "name": "ICON_LOCATION_PROBLEM_25", "file": "icons/location_problem_25.png", "spaceOptimization": "memory"},
-        {"type": "bitmap", "name": "ICON_LOCATION_PROBLEM_18", "file": "icons/location_problem_18.png", "spaceOptimization": "memory"},
-        {"type": "bitmap", "name": "ICON_WARNING_25", "file": "icons/warning_25.png", "spaceOptimization": "memory"},
-        {"type": "bitmap", "name": "ICON_WARNING_18", "file": "icons/warning_18.png", "spaceOptimization": "memory"},
-        {"type": "bitmap", "name": "ICON_CLOCK_25", "file": "icons/alarm_clock_25.png", "spaceOptimization": "memory"},
-        {"type": "bitmap", "name": "ICON_CLOCK_18", "file": "icons/alarm_clock_18.png", "spaceOptimization": "memory"},
-        {"type": "bitmap", "name": "ICON_FLASHLIGHT_25", "file": "icons/backlight_25.png", "spaceOptimization": "memory"},
-        {"type": "bitmap", "name": "ICON_FLASHLIGHT_18", "file": "icons/backlight_18.png", "spaceOptimization": "memory"}
+        {"type": "raw", "name": "ICON_LOCATION_25", "file": "icons/location_25.pdc", "targetPlatforms": ["emery", "gabbro"]},
+        {"type": "raw", "name": "ICON_LOCATION_18", "file": "icons/location_18.pdc", "targetPlatforms": ["basalt", "chalk", "diorite", "flint"]},
+        {"type": "raw", "name": "ICON_LOCATION_PROBLEM_25", "file": "icons/location_problem_25.pdc", "targetPlatforms": ["emery", "gabbro"]},
+        {"type": "raw", "name": "ICON_LOCATION_PROBLEM_18", "file": "icons/location_problem_18.pdc", "targetPlatforms": ["basalt", "chalk", "diorite", "flint"]},
+        {"type": "raw", "name": "ICON_WARNING_25", "file": "icons/warning_25.pdc", "targetPlatforms": ["emery", "gabbro"]},
+        {"type": "raw", "name": "ICON_WARNING_18", "file": "icons/warning_18.pdc", "targetPlatforms": ["basalt", "chalk", "diorite", "flint"]},
+        {"type": "raw", "name": "ICON_CLOCK_25", "file": "icons/alarm_clock_25.pdc", "targetPlatforms": ["emery", "gabbro"]},
+        {"type": "raw", "name": "ICON_CLOCK_18", "file": "icons/alarm_clock_18.pdc", "targetPlatforms": ["basalt", "chalk", "diorite", "flint"]},
+        {"type": "raw", "name": "ICON_FLASHLIGHT_25", "file": "icons/backlight_25.pdc", "targetPlatforms": ["emery", "gabbro"]},
+        {"type": "raw", "name": "ICON_FLASHLIGHT_18", "file": "icons/backlight_18.pdc", "targetPlatforms": ["basalt", "chalk", "diorite", "flint"]}
       ]
     }
   }
