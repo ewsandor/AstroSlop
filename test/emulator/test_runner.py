@@ -17,6 +17,49 @@ import run
 
 
 class RunnerTests(unittest.TestCase):
+    def test_screenshot_retries_only_protocol_timeout(self):
+        timeout = ('  File "libpebble2/services/screenshot.py", line 39, in _read_screenshot\n'
+                   'libpebble2.exceptions.TimeoutError\n')
+        for outputs, expected_calls, fails in (
+                ([(1, timeout), (0, "saved\n")], 2, False),
+                ([(1, timeout), (1, timeout)], 2, True),
+                ([(1, "other error\n")], 1, True),
+                ([(1, "libpebble2.exceptions.TimeoutError\n")], 1, True)):
+            with self.subTest(outputs=outputs), tempfile.TemporaryDirectory() as directory:
+                emulator = run.Emulator("diorite", Path("test.pbw"), Path(directory),
+                                        {"appKeys": {}, "uuid": "test"})
+                results = [SimpleNamespace(returncode=code, stdout=output)
+                           for code, output in outputs]
+                try:
+                    with patch.object(run.subprocess, "run", side_effect=results) as command, \
+                         patch.object(run.time, "sleep"):
+                        if fails:
+                            with self.assertRaisesRegex(RuntimeError, "screenshot failed"):
+                                emulator.screenshot(Path(directory) / "screen.png")
+                        else:
+                            emulator.screenshot(Path(directory) / "screen.png")
+                    self.assertEqual(command.call_count, expected_calls)
+                    log = (Path(directory) / "commands.log").read_text()
+                    for _, output in outputs:
+                        self.assertIn(output, log)
+                    self.assertEqual("Retrying screenshot" in log, expected_calls == 2)
+                finally:
+                    emulator.close()
+
+    def test_screenshot_process_timeout_preserves_output_without_retrying(self):
+        with tempfile.TemporaryDirectory() as directory:
+            emulator = run.Emulator("diorite", Path("test.pbw"), Path(directory),
+                                    {"appKeys": {}, "uuid": "test"})
+            try:
+                error = subprocess.TimeoutExpired("pebble", 120, output=b"partial output")
+                with patch.object(run.subprocess, "run", side_effect=error) as command, \
+                     self.assertRaises(subprocess.TimeoutExpired):
+                    emulator.screenshot(Path(directory) / "screen.png")
+                self.assertEqual(command.call_count, 1)
+                self.assertIn("partial output", (Path(directory) / "commands.log").read_text())
+            finally:
+                emulator.close()
+
     def test_angle_tolerances_and_wrap(self):
         run.validate_values((0.0, -12.3), (359.99, -12.31), 0.08)
         for values in ((0.2, -12.3), (0.0, -12.5), (float("nan"), -12.3)):
@@ -303,7 +346,7 @@ class RunnerTests(unittest.TestCase):
                 emulator.output = Path("unused")
                 emulator.platform = "basalt"
                 screen = ("0", "0", "0", "Sun", "179.2\u00b0", "15.6\u00b0")
-                with patch.object(emulator, "run"), patch.object(emulator, "navigate"), \
+                with patch.object(emulator, "screenshot"), patch.object(emulator, "navigate"), \
                      patch.object(emulator, "set_reference_time", return_value=10), \
                      patch.object(emulator, "capture", return_value=(
                          screen, (0, 0, timestamp + 10 + skew), {})), \
@@ -346,8 +389,8 @@ class RunnerTests(unittest.TestCase):
                             raise AssertionError("bad pointing")
                         return {"case": case.name, "live_clock": live_clock}
 
-                    def run(self, *args):
-                        Path(args[-1]).write_bytes(b"failure screen")
+                    def screenshot(self, image):
+                        image.write_bytes(b"failure screen")
 
                     def close(self):
                         pass

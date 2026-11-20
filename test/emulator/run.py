@@ -280,6 +280,38 @@ class Emulator:
         if result.returncode:
             raise RuntimeError(f"{action} failed; see {self.output / 'commands.log'}")
 
+    def screenshot(self, image):
+        args = self.args("screenshot", "--scale", 6, "--no-open", image)
+        for attempt in range(2):
+            self.commands.write(" ".join(args) + "\n")
+            self.commands.flush()
+            try:
+                result = subprocess.run(args, cwd=ROOT, env=self.env, text=True,
+                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                        timeout=120)
+            except subprocess.TimeoutExpired as error:
+                if error.stdout:
+                    output = error.stdout
+                    if isinstance(output, bytes):
+                        output = output.decode(errors="replace")
+                    self.commands.write(output)
+                    self.commands.flush()
+                raise
+            self.commands.write(result.stdout)
+            self.commands.flush()
+            if not result.returncode:
+                return
+            if (attempt == 0 and
+                    'libpebble2/services/screenshot.py' in result.stdout and
+                    re.search(r"^libpebble2\.exceptions\.TimeoutError\s*$",
+                              result.stdout, re.MULTILINE)):
+                self.commands.write("Retrying screenshot after protocol timeout\n")
+                self.commands.flush()
+                print(f"{self.platform}: retrying screenshot after protocol timeout", flush=True)
+                time.sleep(0.5)
+                continue
+            raise RuntimeError(f"screenshot failed; see {self.output / 'commands.log'}")
+
     def message(self, values):
         self.run("send-app-message", "--app-uuid", self.uuid, "--int",
                  *(f"{self.keys[key]}={value}" for key, value in values.items()))
@@ -523,7 +555,7 @@ print("TEST_INTERACTIONS_COMPLETE")
         if abs(observed_time - (timestamp + elapsed)) > 5:
             raise AssertionError("Emulator did not apply reference UTC time")
         image = self.output / f"{case.name}.png"
-        self.run("screenshot", "--scale", 6, "--no-open", image)
+        self.screenshot(image)
         banner, inverted, precise, label, az, el = screen
         expected_label = objects[case.catalog][case.object]["id"] or objects[case.catalog][case.object]["name"]
         if (catalog, obj, banner, inverted, precise, label) != (
@@ -815,7 +847,7 @@ def run_suite(args, project, platforms, output):
                         report["evidence"].append(failed_screen.name)
                 # Preserve the failure while making a best-effort screen capture.
                 try:
-                    emulator.run("screenshot", "--scale", 6, "--no-open", directory / "failure.png")
+                    emulator.screenshot(directory / "failure.png")
                 except (RuntimeError, subprocess.TimeoutExpired) as capture_error:
                     report["capture_error"] = str(capture_error)
                 failures.append(f"{mode}/{platform}: {error}")

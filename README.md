@@ -392,6 +392,10 @@ and debug/Basalt and Chalk, due to a
 draft must be filed, and the test must be re-enabled before that bug can close.
 Their reference and screenshot cases remain active: fixture time is set while
 the app is stopped, then the app is relaunched without retrying failed checks.
+The runner retries a screenshot once if the Pebble CLI reports a screenshot
+protocol timeout; both attempts are recorded in the command log. Other failures
+and failed image checks are not retried. Retries are also printed to the console,
+since successful runs discard their command logs.
 The SDK's public app-run-state protocol confirms stopping through its
 noninteractive Python REPL; a renderer capture confirms startup. Fixture changes
 do not repeatedly reinstall the PBW.
