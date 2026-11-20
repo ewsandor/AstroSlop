@@ -1070,9 +1070,9 @@ the object where the user left each catalog.
 | Region (y, px) | Content | Font |
 |---|---|---|
 | Status bar (0–24) | Local time (left); temperature and status icons (right) | Gothic 18 Bold; icons 25 px |
-| Label (24–56) | Catalog ID and common name, ellipsis if too long | Gothic 24 Bold |
-| Az row (56–110) | `AZ` caption at top left; value right-aligned | Gothic 18 Bold; LECO 42 |
-| El row (110–164) | `EL` caption at top left; value right-aligned, sign only if negative | Gothic 18 Bold; LECO 42 |
+| Label | Catalog ID and common name on one line; ellipsis if too long | Gothic 24 Bold |
+| Az row | `AZ` caption on the left; value right-aligned | Gothic 18 Bold; LECO 60 at 0.1°, LECO 42 at 0.01° |
+| El row | `EL` caption on the left; value right-aligned, sign only if negative | Gothic 18 Bold; same value font as Az |
 | Footer (200–228) | Next rise or set event (left); magnitude (right) | Gothic 18 |
 
 * The status icons are the flashlight-on indicator (§6.8) and the location status icon (§9.7). They
@@ -1125,9 +1125,9 @@ the object where the user left each catalog.
 | Region | flint | gabbro |
 |---|---|---|
 | Status line | Time, temperature, icons (Gothic 18 Bold; icons 18 px) | Time, temperature, one icon, centered (Gothic 18 Bold) |
-| Label | ID and name (Gothic 18 Bold) | ID and name, centered (Gothic 24 Bold) |
+| Label | ID and name (Gothic 18 Bold) | ID and name, centered on one line with ellipsis (Gothic 24 Bold) |
 | Az/El captions | Top left of each row (Gothic 14 Bold) | Centered above each value (Gothic 14 Bold) |
-| Az/El values | Right-aligned (LECO 38 Bold) | Centered (LECO 42, as on emery) |
+| Az/El values | Right-aligned (LECO 38 Bold) | Centered (LECO 60 at 0.1°, LECO 42 at 0.01°) |
 | Footer | Next event; `mag` (Gothic 18) | Next event and `Magnitude`, centered (Gothic 18) |
 
 * **Flint** shows the same information as emery, with the magnitude abbreviated to "mag". The
@@ -1141,13 +1141,14 @@ the object where the user left each catalog.
 
 ### 9.5 Font ladder (largest that fits)
 
-`layout` picks the first font in the platform's ladder whose rendered width
+Emery and Gabbro center the two captions and readings vertically between the single-line catalog
+label and the footer, distributing the space evenly around and between the four elements.
+They use LECO 60 Regular at 0.1° when the widest azimuth fits, and LECO 42 otherwise, including
+at 0.01°. On other platforms the app picks the first font in the ladder whose rendered width
 (`graphics_text_layout_get_content_size`) fits the Az/El row:
 
 | Platform | Ladder (largest → smallest) |
 |---|---|
-| gabbro | LECO 42 (fits both precisions) |
-| emery | LECO 42 → LECO 38 Bold |
 | flint / basalt / diorite | LECO 38 Bold → LECO 32 Bold → LECO 28 Light |
 | chalk | LECO 38 Bold → LECO 32 Bold |
 

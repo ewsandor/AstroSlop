@@ -8,6 +8,12 @@
 
 #define DEG "\xc2\xb0"
 
+#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+#define LARGE_COORDINATE_LAYOUT
+// Gothic 24 fits one line in this box; longer labels get an ellipsis.
+#define CATALOG_LINE_HEIGHT 26
+#endif
+
 typedef struct {
   int16_t status_h, label_y, label_h, az_cap_y, az_y, el_cap_y, el_y, val_h, footer_y;
   const char *status_font, *label_font, *caption_font, *footer_font;
@@ -25,7 +31,8 @@ static bool s_font_initialized;
 static bool s_icons_inverted;
 static uint8_t s_icon_errors;
 
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+#ifdef LARGE_COORDINATE_LAYOUT
+static bool s_value_font_large;
 static const uint32_t s_icon_resources[] = {
   0, RESOURCE_ID_ICON_LOCATION_25, RESOURCE_ID_ICON_LOCATION_PROBLEM_25,
   RESOURCE_ID_ICON_CLOCK_25, RESOURCE_ID_ICON_WARNING_25, RESOURCE_ID_ICON_FLASHLIGHT_25};
@@ -37,13 +44,13 @@ static const uint32_t s_icon_resources[] = {
 
 static Layout layout(void) {
 #if defined(PBL_PLATFORM_EMERY)
-  return (Layout){24, 24, 30, 64, 70, 122, 128, 50, 202,
-    FONT_KEY_GOTHIC_18_BOLD, FONT_KEY_GOTHIC_24_BOLD, FONT_KEY_GOTHIC_18_BOLD, FONT_KEY_GOTHIC_18,
-    {FONT_KEY_LECO_42_NUMBERS, FONT_KEY_LECO_38_BOLD_NUMBERS, FONT_KEY_LECO_32_BOLD_NUMBERS}, false};
+  return (Layout){.status_h = 24, .label_y = 24, .label_h = CATALOG_LINE_HEIGHT, .footer_y = 202,
+    .status_font = FONT_KEY_GOTHIC_18_BOLD, .label_font = FONT_KEY_GOTHIC_24_BOLD,
+    .caption_font = FONT_KEY_GOTHIC_18_BOLD, .footer_font = FONT_KEY_GOTHIC_18};
 #elif defined(PBL_PLATFORM_GABBRO)
-  return (Layout){0, 30, 28, 60, 72, 136, 148, 64, 208,
-    FONT_KEY_GOTHIC_18_BOLD, FONT_KEY_GOTHIC_24_BOLD, FONT_KEY_GOTHIC_14_BOLD, FONT_KEY_GOTHIC_18,
-    {FONT_KEY_LECO_42_NUMBERS, FONT_KEY_LECO_38_BOLD_NUMBERS, FONT_KEY_LECO_32_BOLD_NUMBERS}, true};
+  return (Layout){.label_y = 30, .label_h = CATALOG_LINE_HEIGHT, .footer_y = 208, .round = true,
+    .status_font = FONT_KEY_GOTHIC_18_BOLD, .label_font = FONT_KEY_GOTHIC_24_BOLD,
+    .caption_font = FONT_KEY_GOTHIC_14_BOLD, .footer_font = FONT_KEY_GOTHIC_18};
 #elif defined(PBL_ROUND)
   return (Layout){0, 27, 22, 49, 59, 103, 113, 44, 0,
     FONT_KEY_GOTHIC_14_BOLD, FONT_KEY_GOTHIC_18_BOLD, FONT_KEY_GOTHIC_14_BOLD, NULL,
@@ -81,19 +88,50 @@ static const char *fit_font(const char *text, int width, const char *const *font
 }
 
 static void choose_font(const Layout *item, int16_t width) {
+  int available = item->round ? width - 40 : width - 8;
   const char *widest = s_screen->precise ? "359.99" DEG : "359.9" DEG;
-  for (unsigned i = 0; i < ARRAY_LENGTH(item->ladder); ++i) {
-    if (text_width(widest, item->ladder[i]) <= width) {
-      s_value_font = fonts_get_system_font(item->ladder[i]);
-      break;
-    }
-  }
-  if (!s_value_font) {
-    s_value_font = fonts_get_system_font(item->ladder[2]);
-  }
+#ifdef LARGE_COORDINATE_LAYOUT
+  s_value_font_large = !s_screen->precise &&
+      text_width(widest, FONT_KEY_LECO_60_NUMBERS_AM_PM) <= available;
+  s_value_font = fonts_get_system_font(
+      s_value_font_large ? FONT_KEY_LECO_60_NUMBERS_AM_PM : FONT_KEY_LECO_42_NUMBERS);
+#else
+  s_value_font = fonts_get_system_font(
+      fit_font(widest, available, item->ladder, ARRAY_LENGTH(item->ladder)));
+#endif
   s_font_precise = s_screen->precise;
   s_font_initialized = true;
 }
+
+#ifdef LARGE_COORDINATE_LAYOUT
+static void draw_large_coordinates(GContext *context, int width, const Layout *item) {
+  // Ink bounds of Gothic AZ/EL and LECO digits relative to the Pebble text box.
+  int caption_top = item->round ? 5 : 7;
+  int caption_h = item->round ? 9 : 11;
+  int digit_top = s_value_font_large ? 18 : 13;
+  int digit_h = s_value_font_large ? 42 : 29;
+  int y = item->label_y - 2 + item->label_h;
+  int bottom = item->footer_y - (item->round ? 0 : 2);
+  int spare = bottom - y - 2 * (caption_h + digit_h);
+  GTextAlignment caption_align = item->round ? GTextAlignmentCenter : GTextAlignmentLeft;
+  GTextAlignment value_align = item->round ? GTextAlignmentCenter : GTextAlignmentRight;
+  const StringId captions[] = {STR_AZ, STR_EL};
+  const char *values[] = {s_screen->azimuth, s_screen->elevation};
+
+  // Distribute spare pixels across the five gaps, at most one pixel apart.
+  for (int i = 0; i < 2; ++i) {
+    int caption_y = y + (2 * i + 1) * spare / 5;
+    int value_y = y + caption_h + (2 * i + 2) * spare / 5;
+    draw_text(context, l10n(captions[i]), item->caption_font,
+              GRect(item->round ? 0 : 4, caption_y - caption_top,
+                    item->round ? width : 30, 20), caption_align);
+    graphics_draw_text(context, values[i], s_value_font,
+                       GRect(0, value_y - digit_top, width - (item->round ? 0 : 4), 60),
+                       GTextOverflowModeFill, value_align, NULL);
+    y += caption_h + digit_h;
+  }
+}
+#endif
 
 static void draw_icon(GContext *context, unsigned icon, int x, int y, int size) {
   if (!icon || icon >= ARRAY_LENGTH(s_icons)) {
@@ -239,8 +277,7 @@ static void draw_main(GContext *context, GRect bounds, const Layout *item) {
   int width = bounds.size.w;
   int icon_size = width >= 200 ? 25 : 18;
   if (!s_font_initialized || s_font_precise != s_screen->precise) {
-    s_value_font = NULL;
-    choose_font(item, item->round ? width - 40 : width - 8);
+    choose_font(item, width);
   }
   if (!item->round) {
     draw_text(context, s_screen->clock, item->status_font,
@@ -258,6 +295,7 @@ static void draw_main(GContext *context, GRect bounds, const Layout *item) {
     graphics_draw_line(context, GPoint(0, item->status_h), GPoint(width, item->status_h));
     draw_text(context, s_screen->label, item->label_font,
               GRect(4, item->label_y - 2, width - 8, item->label_h), GTextAlignmentLeft);
+#ifndef LARGE_COORDINATE_LAYOUT
     draw_text(context, l10n(STR_AZ), item->caption_font,
               GRect(4, item->az_cap_y, 30, 20), GTextAlignmentLeft);
     draw_text(context, l10n(STR_EL), item->caption_font,
@@ -268,6 +306,7 @@ static void draw_main(GContext *context, GRect bounds, const Layout *item) {
     graphics_draw_text(context, s_screen->elevation, s_value_font,
                        GRect(0, item->el_y, width - 4, item->val_h),
                        GTextOverflowModeFill, GTextAlignmentRight, NULL);
+#endif
   } else {
     char status[40];
     unsigned icon = s_screen->icon ? s_screen->icon : (s_screen->flashlight ? 5 : 0);
@@ -285,6 +324,7 @@ static void draw_main(GContext *context, GRect bounds, const Layout *item) {
     }
     draw_text(context, s_screen->label, item->label_font,
               GRect(36, item->label_y - 2, width - 72, item->label_h), GTextAlignmentCenter);
+#ifndef LARGE_COORDINATE_LAYOUT
     draw_text(context, l10n(STR_AZ), item->caption_font,
               GRect(0, item->az_cap_y, width, 18), GTextAlignmentCenter);
     draw_text(context, l10n(STR_EL), item->caption_font,
@@ -295,7 +335,11 @@ static void draw_main(GContext *context, GRect bounds, const Layout *item) {
     graphics_draw_text(context, s_screen->elevation, s_value_font,
                        GRect(0, item->el_y, width, item->val_h),
                        GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+#endif
   }
+#ifdef LARGE_COORDINATE_LAYOUT
+  draw_large_coordinates(context, width, item);
+#endif
   draw_footer(context, bounds, item);
 }
 
