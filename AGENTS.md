@@ -55,6 +55,38 @@ Only keep a connection open (`pebble logs`, `--logs`) while you actually need it
 
 Repeat with `--emulator <platform>` for each platform in `targetPlatforms` in package.json. Round displays (chalk, gabbro) and the smaller aplite/diorite screens need their own check.
 
+### Automated tests and focused checks
+
+- The commands, prerequisites, coverage, quarantine and report format are in
+  the README's "Emulator acceptance suites" section.
+- Host checks: `make -C test/astro`, `python3 -m unittest discover -s test/tools -v`,
+  `node test/pkjs/companion.test.js`, and (after `make -C test/astro references`)
+  `python3 -m unittest discover -s test/emulator -v`.
+- Run the complete PR gate locally with `python3 test/emulator/run.py --tier sanity`
+  (release and debug, all target platforms). Run the release tier with
+  `python3 test/emulator/run.py --tier comprehensive` (release, all platforms).
+  Comprehensive also accepts `--mode debug` for triage.
+- For fast spot checks, list cases with `python3 test/emulator/run.py --tier comprehensive --list-cases`,
+  then select a platform, mode and relevant cases, for example
+  `python3 test/emulator/run.py --tier sanity --mode debug --platform emery --case ui-banner`
+  or use `--group navigation`. Repeat `--case` or `--group` to select a union;
+  quote glob patterns such as `--case 'horizons-00?'`. Use `--pbw path/to/app.pbw`
+  with one mode to reuse a build. Focused runs do not replace the full gates.
+- Reports persist on success and failure; only failures retain logs/screenshots.
+  The existing clock-change quarantine is reported as skipped, not passed.
+  GitHub Actions runs each platform/mode on a separate runner in parallel.
+- Release store screenshots use `test/emulator/store_screenshots.py`; fixture
+  details and the local command are in the README. They run after the GitHub
+  Release and gate publishing, using the release PBW.
+- On Linux, run `python3 test/emulator/parallel.py --tier sanity --jobs 2`
+  for isolated local workers, or pass `--mode`, `--platform`, `--case`, `--group`
+  and single-mode `--pbw` for focused checks. It requires `unshare`, `bwrap`,
+  `ip` and unprivileged user/network namespaces. Reports are in a new directory
+  under `build/emulator-parallel`; workers use private flash and VNC state.
+  Limit jobs to available resources. The ordinary serial runner uses shared
+  managed VNC; do not run it concurrently with another user's emulator or
+  interactive work.
+
 ### Headless Environments
 
 If you're running in an environment without a window server (e.g., headless Linux, Docker, CI), you must add `--vnc` to **all commands that interact with the emulator**. This includes app installs, screenshots, button presses, and any `emu-*` commands:

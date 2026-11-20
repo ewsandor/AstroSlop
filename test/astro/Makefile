@@ -10,8 +10,10 @@ EPHEMERIS_INPUTS := $(ROOT)/ephemeris/minor_planets.csv \
                     $(wildcard $(ROOT)/ephemeris/meeus/*.csv) \
                     $(wildcard $(ROOT)/ephemeris/vsop87d/VSOP87D.*.gz)
 
-.PHONY: all test
+.PHONY: all test references
 all: test
+
+references: $(OUT)/test_core $(OUT)/test_horizons $(OUT)/pointing_reference $(EPHEMERIS)
 
 test: $(OUT)/test_core $(OUT)/test_ephemeris $(OUT)/test_horizons \
       $(OUT)/test_log_release $(OUT)/test_log_debug $(EPHEMERIS)
@@ -31,6 +33,9 @@ $(OUT)/test_ephemeris: test_ephemeris.c $(SOURCE)/astro.c $(SOURCE)/events.c $(S
 	$(CC) $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
 
 $(OUT)/test_horizons: test_horizons.c $(SOURCE)/astro.c $(SOURCE)/ephemeris.c $(SOURCE)/astro.h $(SOURCE)/ephemeris.h | $(OUT)
+	$(CC) $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
+
+$(OUT)/pointing_reference: pointing_reference.c $(SOURCE)/astro.c $(SOURCE)/ephemeris.c $(SOURCE)/astro.h $(SOURCE)/ephemeris.h | $(OUT)
 	$(CC) $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
 
 $(OUT)/test_log_release: test_log.c $(ROOT)/src/c/logging.h | $(OUT)

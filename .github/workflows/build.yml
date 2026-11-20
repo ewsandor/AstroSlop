@@ -5,6 +5,7 @@ on:
     branches: [main]
     tags: ["v*"]
   pull_request:
+  merge_group:
   workflow_dispatch:
 
 permissions:
@@ -16,52 +17,23 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    env:
-      PEBBLE_SDK_VERSION: "4.44"
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.meta.outputs.version }}
+      platforms: ${{ steps.meta.outputs.platforms }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12" # pebble-tool supports Python 3.10-3.13
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libsdl2-2.0-0 libglib2.0-0 libpixman-1-0 zlib1g libsndio7.0
-
-      - uses: astral-sh/setup-uv@v5
-
-      - name: Install pebble tool
-        run: uv tool install pebble-tool
-
-      - name: Cache Pebble SDK
-        id: sdk_cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/share/pebble-sdk
-          key: pebble-sdk-${{ runner.os }}-${{ env.PEBBLE_SDK_VERSION }}
-
-      - name: Install Pebble SDK
-        if: steps.sdk_cache.outputs.cache-hit != 'true'
-        run: pebble sdk install "$PEBBLE_SDK_VERSION"
-
-      - name: Install npm dependencies
-        run: npm ci
+      - uses: ./.github/actions/setup-pebble
 
       - name: Build
         run: pebble build
 
       - name: Read version
         id: meta
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "platforms=$(node -p "JSON.stringify(require('./package.json').pebble.targetPlatforms)")" >> "$GITHUB_OUTPUT"
 
       - name: Verify tag matches package version
         if: github.ref_type == 'tag'
@@ -111,14 +83,18 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: pbw
+          name: pbw-release
           path: dist/*.pbw
           if-no-files-found: error
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pbw-debug
+          path: build/*.pbw
+          if-no-files-found: error
 
   test:
-    needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -133,19 +109,182 @@ jobs:
         run: python3 -m unittest discover -s test/tools -v
       - name: Companion tests
         run: node test/pkjs/companion.test.js
+      - name: Install emulator test dependencies
+        run: python3 -m pip install -r test/emulator/requirements.txt
+      - name: Emulator runner tests
+        run: |
+          make -C test/astro references
+          python3 -m unittest discover -s test/emulator -v
 
+  sanity-emulator:
+    if: github.ref_type != 'tag'
+    needs: [build, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(needs.build.outputs.platforms) }}
+        mode: [release, debug]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pebble
+      - run: python3 -m pip install -r test/emulator/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: pbw-${{ matrix.mode }}
+          path: dist
+      - name: Initialize emulator
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          pebble emu-set-location --emulator "$PLATFORM" --vnc 40 -105
+          reply=$(printf '%s\n' 'pebble.send_and_read(protocol.AppRunState(data=protocol.AppRunStateRequest()), protocol.AppRunState, timeout=15); print("TEST_WATCH_READY")' | pebble repl --emulator "$PLATFORM" --vnc)
+          printf '%s\n' "$reply"
+          printf '%s\n' "$reply" | grep -qx 'TEST_WATCH_READY'
+      - name: Sanity emulator suite
+        run: |
+          python3 test/emulator/run.py --tier sanity --mode "${{ matrix.mode }}" \
+            --platform "${{ matrix.platform }}" --pbw "$(find dist -name '*.pbw')" \
+            --output test-results
+      - name: Ensure a final sanity report exists
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = Path("test-results/summary.json")
+          if not report.exists():
+              report.parent.mkdir(parents=True, exist_ok=True)
+              report.write_text(json.dumps({"tier": "sanity", "success": False,
+                  "error": "Suite did not start; inspect workflow setup logs"}) + "\n")
+          PY
+      - name: Upload sanity reports and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanity-${{ matrix.mode }}-${{ matrix.platform }}
+          path: test-results/
+          if-no-files-found: error
+
+  # Stable required status for branch protection, including merge queues.
+  sanity:
+    if: always() && github.ref_type != 'tag'
+    needs: [build, test, sanity-emulator]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every sanity matrix entry
+        env:
+          BUILD: ${{ needs.build.result }}
+          HOST: ${{ needs.test.result }}
+          EMULATOR: ${{ needs.sanity-emulator.result }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          checks = {name.lower(): os.environ[name] for name in ("BUILD", "HOST", "EMULATOR")}
+          passed = all(result == "success" for result in checks.values())
+          Path("sanity-report.json").write_text(json.dumps({
+              "tier": "sanity", "success": passed, "checks": checks}, indent=2) + "\n")
+          if not passed:
+              raise SystemExit("Sanity requires successful build, host tests, and every emulator")
+          PY
+      - name: Upload final sanity gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanity-report
+          path: sanity-report.json
+          if-no-files-found: error
+
+  comprehensive:
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [build, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(needs.build.outputs.platforms) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pebble
+      - run: python3 -m pip install -r test/emulator/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: pbw-release
+          path: dist
+      - name: Initialize emulator
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          pebble emu-set-location --emulator "$PLATFORM" --vnc 40 -105
+          reply=$(printf '%s\n' 'pebble.send_and_read(protocol.AppRunState(data=protocol.AppRunStateRequest()), protocol.AppRunState, timeout=15); print("TEST_WATCH_READY")' | pebble repl --emulator "$PLATFORM" --vnc)
+          printf '%s\n' "$reply"
+          printf '%s\n' "$reply" | grep -qx 'TEST_WATCH_READY'
+      - name: Comprehensive release emulator suite
+        run: |
+          python3 test/emulator/run.py --tier comprehensive --mode release \
+            --platform "${{ matrix.platform }}" --pbw "$(find dist -name '*.pbw')" \
+            --output test-results
+      - name: Ensure a final comprehensive report exists
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = Path("test-results/summary.json")
+          if not report.exists():
+              report.parent.mkdir(parents=True, exist_ok=True)
+              report.write_text(json.dumps({"tier": "comprehensive", "success": False,
+                  "error": "Suite did not start; inspect workflow setup logs"}) + "\n")
+          PY
+      - name: Upload comprehensive reports and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-release-${{ matrix.platform }}
+          path: test-results/
+          if-no-files-found: error
 
   # The only job with contents: write; keeps a permanent copy of every released .pbw.
   release:
-    if: github.ref_type == 'tag'
-    needs: [build, test]
-    runs-on: ubuntu-latest
+    if: always() && !cancelled() && github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [build, test, comprehensive]
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
+      - name: Require the comprehensive release gate
+        env:
+          BUILD: ${{ needs.build.result }}
+          HOST: ${{ needs.test.result }}
+          EMULATOR: ${{ needs.comprehensive.result }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          checks = {name.lower(): os.environ[name] for name in ("BUILD", "HOST", "EMULATOR")}
+          passed = all(result == "success" for result in checks.values())
+          Path("comprehensive-report.json").write_text(json.dumps({
+              "tier": "comprehensive", "success": passed, "checks": checks}, indent=2) + "\n")
+          if not passed:
+              raise SystemExit("Release requires successful build, host tests, and every emulator")
+          PY
+      - name: Upload final comprehensive gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-report
+          path: comprehensive-report.json
+          if-no-files-found: error
       - uses: actions/download-artifact@v4
         with:
-          name: pbw
+          name: pbw-release
           path: dist
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
@@ -153,11 +292,46 @@ jobs:
           files: dist/*.pbw
           generate_release_notes: true
 
+  store-screenshots:
+    needs: [build, release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(needs.build.outputs.platforms) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pebble
+      - run: python3 -m pip install -r test/emulator/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: pbw-release
+          path: dist
+      - name: Set emulator phone location
+        run: pebble emu-set-location --emulator "${{ matrix.platform }}" --vnc 51.4779 0
+      - name: Capture store listing candidates
+        run: |
+          python3 test/emulator/store_screenshots.py --platform "${{ matrix.platform }}" \
+            --pbw "dist/astroslop-${{ needs.build.outputs.version }}.pbw" --output store-screenshots
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-screenshots-${{ matrix.platform }}
+          path: store-screenshots/${{ matrix.platform }}/*.png
+          if-no-files-found: error
+      - name: Upload capture logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-screenshot-logs-${{ matrix.platform }}
+          path: store-screenshots/logs/
+          if-no-files-found: warn
+
   # Like Core Devices' publishing workflow, check the store before requesting a deployment.
   plan:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [build, test]
-    runs-on: ubuntu-latest
+    needs: [build, release, store-screenshots]
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write
@@ -195,18 +369,18 @@ jobs:
             echo "publish=true" >> "$GITHUB_OUTPUT"
           fi
 
-  # Configure the `Pebble Appstore` environment for main and require approval.
+  # Configure the `Pebble Appstore` environment for version tags and require approval.
   publish:
     if: needs.plan.outputs.publish == 'true'
-    needs: [build, test, plan]
-    runs-on: ubuntu-latest
+    needs: [build, release, plan]
+    runs-on: ubuntu-24.04
     environment: Pebble Appstore
     permissions:
       id-token: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: pbw
+          name: pbw-release
           path: dist
       - name: Publish release to the Pebble appstore
         env:
