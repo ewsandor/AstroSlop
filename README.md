@@ -155,16 +155,18 @@ admin):
    `curl -s https://api.github.com/repos/ewsandor/AstroSlop/rules/branches/main`,
    which should list a `required_status_checks` rule containing `sanity`.
 
-Push a matching `vX.Y.Z` tag to release. The workflow runs the comprehensive
-suite on every supported platform using the exact release PBW built for that
-tag. Only after all comprehensive and host checks pass does it create a GitHub
-Release. Appstore planning and publishing depend on that successful release;
-they never run on ordinary pushes to `main` or on failed releases.
-After the GitHub Release, `store-screenshots` captures native-resolution PNGs
+Push a matching `vX.Y.Z` tag to release. Once the build succeeds, the workflow
+creates a GitHub Release with generated notes and the release PBW, without
+waiting for tests. The release is therefore available before it has passed the
+release gate. The comprehensive suite then tests that exact PBW on every
+supported platform. Only after the host and comprehensive checks pass does
+`store-screenshots` capture native-resolution PNGs
 from the same release PBW on every platform. Download the
 `store-screenshots-<platform>` workflow artifacts to review or update the
 listing manually; the workflow does not modify the listing images. Publishing
-waits for all screenshot jobs to succeed. GitHub artifact retention applies.
+and Appstore planning also wait for the test gate, and publishing waits for all
+screenshot jobs to succeed. They never run on ordinary pushes to `main` or
+failed test gates. GitHub artifact retention applies.
 If the version is new, it publishes that same tested package after any protection
 rules on the `Pebble Appstore` environment pass.
 Create the listing in the Pebble Developer Dashboard first, authorize
@@ -392,6 +394,10 @@ and debug/Basalt and Chalk, due to a
 draft must be filed, and the test must be re-enabled before that bug can close.
 Their reference and screenshot cases remain active: fixture time is set while
 the app is stopped, then the app is relaunched without retrying failed checks.
+The runner retries a screenshot once if the Pebble CLI reports a screenshot
+protocol timeout; both attempts are recorded in the command log. Other failures
+and failed image checks are not retried. Retries are also printed to the console,
+since successful runs discard their command logs.
 The SDK's public app-run-state protocol confirms stopping through its
 noninteractive Python REPL; a renderer capture confirms startup. Fixture changes
 do not repeatedly reinstall the PBW.

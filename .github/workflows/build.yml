@@ -199,9 +199,27 @@ jobs:
           path: sanity-report.json
           if-no-files-found: error
 
+  # Create the GitHub release and attach its PBW before the release test gate.
+  release:
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pbw-release
+          path: dist
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.pbw
+          generate_release_notes: true
+
   comprehensive:
     if: github.event_name == 'push' && github.ref_type == 'tag'
-    needs: [build, test]
+    needs: [build, test, release]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
@@ -250,30 +268,28 @@ jobs:
           path: test-results/
           if-no-files-found: error
 
-  # The only job with contents: write; keeps a permanent copy of every released .pbw.
-  release:
+  comprehensive-gate:
     if: always() && !cancelled() && github.event_name == 'push' && github.ref_type == 'tag'
-    needs: [build, test, comprehensive]
+    needs: [build, test, release, comprehensive]
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
     steps:
       - name: Require the comprehensive release gate
         env:
           BUILD: ${{ needs.build.result }}
           HOST: ${{ needs.test.result }}
+          RELEASE: ${{ needs.release.result }}
           EMULATOR: ${{ needs.comprehensive.result }}
         run: |
           python3 - <<'PY'
           import json
           import os
           from pathlib import Path
-          checks = {name.lower(): os.environ[name] for name in ("BUILD", "HOST", "EMULATOR")}
+          checks = {name.lower(): os.environ[name] for name in ("BUILD", "HOST", "RELEASE", "EMULATOR")}
           passed = all(result == "success" for result in checks.values())
           Path("comprehensive-report.json").write_text(json.dumps({
               "tier": "comprehensive", "success": passed, "checks": checks}, indent=2) + "\n")
           if not passed:
-              raise SystemExit("Release requires successful build, host tests, and every emulator")
+              raise SystemExit("Store assets and publication require a successful release, host tests, and every emulator")
           PY
       - name: Upload final comprehensive gate report
         if: always()
@@ -282,18 +298,8 @@ jobs:
           name: comprehensive-report
           path: comprehensive-report.json
           if-no-files-found: error
-      - uses: actions/download-artifact@v4
-        with:
-          name: pbw-release
-          path: dist
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.pbw
-          generate_release_notes: true
-
   store-screenshots:
-    needs: [build, release]
+    needs: [build, release, comprehensive-gate]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
