@@ -257,6 +257,44 @@ python3 test/emulator/run.py --tier comprehensive --mode release --platform chal
   --group navigation --group filters
 ```
 
+On Linux, `test/emulator/parallel.py` can run platform/mode combinations in
+parallel without Docker or downloading an image. It requires `unshare` (from
+util-linux), `bwrap` (Bubblewrap), `ip` (iproute2), and permission to create
+unprivileged user and network namespaces. The usual Pebble SDK and test
+dependencies must already be installed.
+
+```sh
+# PR emulator tier, at most three isolated emulators at a time
+python3 test/emulator/parallel.py --tier sanity --jobs 3
+
+# Focused release check, reusing an existing PBW
+python3 test/emulator/parallel.py --tier comprehensive --mode release \
+  --platform chalk --platform emery --pbw build/astroslop.pbw \
+  --group navigation --jobs 2
+```
+
+The parallel launcher supports the same tier, mode, platform, case, group and
+single-mode PBW selections as the serial runner. It builds each needed mode
+once in a temporary workspace unless `--pbw` is supplied. Each worker has its
+own workspace, SDK flash, temporary files, process namespace and offline
+network; its simulated phone location starts at 40° N, 105° W. The installed SDK
+is mounted read-only. Workers do not use or change the user's running emulator.
+The default is two workers; increase `--jobs` according to available CPU, RAM
+and disk space. Namespace restrictions may prevent this option on some systems;
+the serial runner remains available.
+
+Each invocation creates a new directory under `build/emulator-parallel`
+(or `--output`) and prints its path. Its `summary.json` aggregates worker
+results; `workers/<mode>/<platform>/` contains the normal runner reports and
+`worker.log`, including startup failures. Temporary workspaces and emulator
+state are discarded after the run. As with the serial suite, quarantined cases
+are reported as skipped, not passed.
+
+With SDK 4.44, a fresh Diorite emulator has intermittently reset during app
+installation. The worker reports this as a failure rather than retrying it;
+rerun the affected platform to distinguish a transient installation failure
+from a repeatable test failure.
+
 `--case` accepts a case name or a quoted shell-style glob. `--group` selects
 `pointing`, `clock`, `navigation`, `weather`, `display`, or `filters`. Both
 options can be repeated or combined; they select the union of matching cases in
@@ -268,10 +306,11 @@ The runner builds once per mode, copies each PBW before another mode overwrites
 the build output, and reuses each platform's emulator. All emulator commands
 include `--vnc`; the log connection is closed when each run finishes, including
 on failure. Tests change emulator time, location, settings and object selection;
-do not use an emulator concurrently for interactive work. Runs are serial
-locally: the Pebble CLI's managed VNC emulator uses one display and can stop
-another VNC emulator when switching platforms. GitHub Actions runs its
-platform/mode matrix in parallel on separate runners. For IPv4-only
+do not use an emulator concurrently for interactive work. The serial runner
+uses the Pebble CLI's managed VNC emulator, which uses one display and can stop
+another VNC emulator when switching platforms. Use the isolated parallel
+launcher above for concurrent local runs. GitHub Actions runs its platform/mode
+matrix in parallel on separate runners. For IPv4-only
 containers, use the temporary `PYTHONPATH` workaround in [AGENTS.md](AGENTS.md).
 
 **Sanity** covers Sun, Moon, planets, a minor planet, a star and a DSO, both

@@ -74,10 +74,15 @@ Repeat with `--emulator <platform>` for each platform in `targetPlatforms` in pa
   with one mode to reuse a build. Focused runs do not replace the full gates.
 - Reports persist on success and failure; only failures retain logs/screenshots.
   The existing clock-change quarantine is reported as skipped, not passed.
-  GitHub Actions runs each platform/mode on a separate runner in parallel;
-  local emulator runs are serial because managed VNC uses a single display.
-  Starting another platform can stop an existing VNC emulator, so do not run
-  these tests concurrently with another user's emulator or interactive work.
+  GitHub Actions runs each platform/mode on a separate runner in parallel.
+- On Linux, run `python3 test/emulator/parallel.py --tier sanity --jobs 2`
+  for isolated local workers, or pass `--mode`, `--platform`, `--case`, `--group`
+  and single-mode `--pbw` for focused checks. It requires `unshare`, `bwrap`,
+  `ip` and unprivileged user/network namespaces. Reports are in a new directory
+  under `build/emulator-parallel`; workers use private flash and VNC state.
+  Limit jobs to available resources. The ordinary serial runner uses shared
+  managed VNC; do not run it concurrently with another user's emulator or
+  interactive work.
 
 ### Headless Environments
 
