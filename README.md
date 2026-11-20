@@ -211,6 +211,31 @@ The script uses the managed VNC emulator and its persistent flash; avoid running
 it alongside another user's emulator. Its logs are under the output's `logs/`
 directory. The Python dependencies are the same as the emulator test suite.
 
+### Icon assets
+
+The Dobsonian icon assets for [branding issue #11](https://github.com/ewsandor/AstroSlop/issues/11)
+are in `assets/icons/`: color and transparent black-and-white PNGs, plus SVG and
+PDC sources, in 25x25, 50x50 and 80x80 sizes. The menu icon
+(`resources/icons/app_icon.png`) uses the transparent 25x25 black-and-white PNG.
+Only the 80x80 artwork includes setting-circle ticks; the smaller sizes omit them.
+The 144x144 color PNG is rendered from the 80x80 artwork, including its ticks.
+Transparent black-and-white PNGs for all three sizes are named
+`dobsonian_<size>px_bw.png`; they use the same Pebble-rendered pixels as the
+color icons, with the red background made transparent.
+Use [`pdc_tool`](https://github.com/HBehrens/pdc_tool), linked by the Pebble
+iconography style guide, to regenerate them without antialiasing:
+
+```sh
+pdc_tool assets/icons/dobsonian_80px.svg pdc assets/icons/dobsonian_80px.pdc
+pdc_tool assets/icons/dobsonian_80px.pdc png assets/icons/dobsonian_80px.png \
+  --no-antialiasing --offset 0,0 --crop 0,0,80,80 --background-color dark-candy-apple-red
+```
+
+For 50x50 or 25x25, substitute `50` or `25` for `80`. To regenerate the
+transparent PNGs, replace the exact dark candy apple red background pixels in
+each color PNG with transparent pixels, preserving the black and white pixels.
+Copy the transparent 25x25 PNG to `resources/icons/app_icon.png` for the menu.
+
 ### Install on a watch
 
 Pair your watch with the Pebble mobile app and sign in to your Pebble account.
