@@ -41,7 +41,7 @@ static Layout layout(void) {
     FONT_KEY_GOTHIC_18_BOLD, FONT_KEY_GOTHIC_24_BOLD, FONT_KEY_GOTHIC_18_BOLD, FONT_KEY_GOTHIC_18,
     {FONT_KEY_LECO_42_NUMBERS, FONT_KEY_LECO_38_BOLD_NUMBERS, FONT_KEY_LECO_32_BOLD_NUMBERS}, false};
 #elif defined(PBL_PLATFORM_GABBRO)
-  return (Layout){0, 30, 28, 60, 72, 136, 148, 64, 214,
+  return (Layout){0, 30, 28, 60, 72, 136, 148, 64, 208,
     FONT_KEY_GOTHIC_18_BOLD, FONT_KEY_GOTHIC_24_BOLD, FONT_KEY_GOTHIC_14_BOLD, FONT_KEY_GOTHIC_18,
     {FONT_KEY_LECO_42_NUMBERS, FONT_KEY_LECO_38_BOLD_NUMBERS, FONT_KEY_LECO_32_BOLD_NUMBERS}, true};
 #elif defined(PBL_ROUND)
@@ -198,9 +198,28 @@ static void draw_footer(GContext *context, GRect bounds, const Layout *item) {
     return;
   }
   char magnitude[32] = "";
+  if (item->round) {
+    // The shorter rise/set text goes on the lower line, where the circle is narrowest.
+    int line_h = 18;
+    int magnitude_w = width - 80;
+    int event_w = width - 110;
+    if (s_screen->magnitude[0]) {
+      snprintf(magnitude, sizeof(magnitude), "%s %s", l10n(STR_MAGNITUDE), s_screen->magnitude);
+      if (text_width(magnitude, item->footer_font) > magnitude_w) {
+        snprintf(magnitude, sizeof(magnitude), "%s %s", l10n(STR_MAG_SHORT), s_screen->magnitude);
+      }
+      draw_text(context, magnitude, item->footer_font,
+                GRect((width - magnitude_w) / 2, item->footer_y, magnitude_w, line_h + 4),
+                GTextAlignmentCenter);
+    }
+    int y = item->footer_y + (magnitude[0] ? line_h : 0);
+    draw_text(context, s_screen->event, item->footer_font,
+              GRect((width - event_w) / 2, y, event_w, line_h + 4), GTextAlignmentCenter);
+    return;
+  }
   if (s_screen->magnitude[0]) {
     snprintf(magnitude, sizeof(magnitude), "%s %s", l10n(STR_MAGNITUDE), s_screen->magnitude);
-    int available = item->round ? width - 80 : width - 8;
+    int available = width - 8;
     if (text_width(s_screen->event, item->footer_font) + text_width(magnitude, item->footer_font) +
         (s_screen->event[0] ? 12 : 0) > available) {
       snprintf(magnitude, sizeof(magnitude), "%s %s", l10n(STR_MAG_SHORT), s_screen->magnitude);
@@ -210,18 +229,10 @@ static void draw_footer(GContext *context, GRect bounds, const Layout *item) {
       magnitude[0] = '\0';
     }
   }
-  if (item->round) {
-    char footer[72];
-    snprintf(footer, sizeof(footer), "%s%s%s", s_screen->event,
-             s_screen->event[0] && magnitude[0] ? "   " : "", magnitude);
-    draw_text(context, footer, item->footer_font,
-              GRect(40, item->footer_y, width - 80, 22), GTextAlignmentCenter);
-  } else {
-    draw_text(context, s_screen->event, item->footer_font,
-              GRect(4, item->footer_y - 2, width - 8, 24), GTextAlignmentLeft);
-    draw_text(context, magnitude, item->footer_font,
-              GRect(4, item->footer_y - 2, width - 8, 24), GTextAlignmentRight);
-  }
+  draw_text(context, s_screen->event, item->footer_font,
+            GRect(4, item->footer_y - 2, width - 8, 24), GTextAlignmentLeft);
+  draw_text(context, magnitude, item->footer_font,
+            GRect(4, item->footer_y - 2, width - 8, 24), GTextAlignmentRight);
 }
 
 static void draw_main(GContext *context, GRect bounds, const Layout *item) {
@@ -259,14 +270,14 @@ static void draw_main(GContext *context, GRect bounds, const Layout *item) {
                        GTextOverflowModeFill, GTextAlignmentRight, NULL);
   } else {
     char status[40];
-    bool show_temperature = width >= 200 && s_screen->temperature[0];
+    unsigned icon = s_screen->icon ? s_screen->icon : (s_screen->flashlight ? 5 : 0);
+    bool show_temperature = width >= 200 && s_screen->temperature[0] && !icon;
     snprintf(status, sizeof(status), "%s%s%s", s_screen->clock,
              s_screen->clock[0] && show_temperature ? "  " : "",
              show_temperature ? s_screen->temperature : "");
     int time_y = item->label_y - (width < 200 ? 19 : 22);
     draw_text(context, status, item->status_font,
               GRect(0, time_y, width, 22), GTextAlignmentCenter);
-    unsigned icon = s_screen->icon ? s_screen->icon : (s_screen->flashlight ? 5 : 0);
     if (icon) {
       int x = width / 2 + text_width(status, item->status_font) / 2 + 3;
       if (x + icon_size > width - 35) x = width - 35 - icon_size;
