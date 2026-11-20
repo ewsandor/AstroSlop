@@ -161,6 +161,7 @@ are in `assets/icons/`: color and transparent black-and-white PNGs, plus SVG and
 PDC sources, in 25x25, 50x50 and 80x80 sizes. The menu icon
 (`resources/icons/app_icon.png`) uses the transparent 25x25 black-and-white PNG.
 Only the 80x80 artwork includes setting-circle ticks; the smaller sizes omit them.
+The 144x144 color PNG is rendered from the 80x80 artwork, including its ticks.
 Transparent black-and-white PNGs for all three sizes are named
 `dobsonian_<size>px_bw.png`; they use the same Pebble-rendered pixels as the
 color icons, with the red background made transparent.
