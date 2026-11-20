@@ -75,6 +75,9 @@ Repeat with `--emulator <platform>` for each platform in `targetPlatforms` in pa
 - Reports persist on success and failure; only failures retain logs/screenshots.
   The existing clock-change quarantine is reported as skipped, not passed.
   GitHub Actions runs each platform/mode on a separate runner in parallel.
+- Release store screenshots use `test/emulator/store_screenshots.py`; fixture
+  details and the local command are in the README. They run after the GitHub
+  Release and gate publishing, using the release PBW.
 - On Linux, run `python3 test/emulator/parallel.py --tier sanity --jobs 2`
   for isolated local workers, or pass `--mode`, `--platform`, `--case`, `--group`
   and single-mode `--pbw` for focused checks. It requires `unshare`, `bwrap`,

@@ -11,7 +11,7 @@ on:
 jobs:
   # The job must be named copilot-setup-steps for Copilot to use it.
   copilot-setup-steps:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -29,12 +29,12 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsdl2-2.0-0 libglib2.0-0 libpixman-1-0 zlib1g libsndio7.0
+          sudo apt-get install -y libsdl2-2.0-0 libglib2.0-0t64 libpixman-1-0 zlib1g libsndio7.0 libpng16-16t64
 
       - uses: astral-sh/setup-uv@v5
 
       - name: Install pebble tool
-        run: uv tool install pebble-tool
+        run: uv tool install pebble-tool==5.2.0
 
       - name: Set Pebble SDK version
         id: sdk_version

@@ -68,9 +68,8 @@ They use the same scale; live values and text vary with the selected object.
 
 More platform and state mockups are in the [design document](docs/DESIGN.md#911-emulator-renderings).
 
-Native-resolution app store screenshots for each supported platform are in
-[assets/screenshots](assets/screenshots/). They show sample emulator positions;
-the Emery set also includes its red backlight.
+Native-resolution app store screenshots are available as workflow artifacts;
+see [release screenshots](#release-screenshots).
 
 ## Theory of operation
 
@@ -140,6 +139,7 @@ npm version 0.1.1 --no-git-tag-version
 ```
 
 The phone settings About section uses the version from `package.json`.
+CI uses Ubuntu 24.04, Pebble Tool 5.2.0, and SDK 4.44 to reduce toolchain drift.
 
 PRs, merge queues, pushes to `main`, and manual workflow runs build both modes
 and run the sanity suite on every supported platform. The aggregate **`sanity`**
@@ -160,6 +160,11 @@ suite on every supported platform using the exact release PBW built for that
 tag. Only after all comprehensive and host checks pass does it create a GitHub
 Release. Appstore planning and publishing depend on that successful release;
 they never run on ordinary pushes to `main` or on failed releases.
+After the GitHub Release, `store-screenshots` captures native-resolution PNGs
+from the same release PBW on every platform. Download the
+`store-screenshots-<platform>` workflow artifacts to review or update the
+listing manually; the workflow does not modify the listing images. Publishing
+waits for all screenshot jobs to succeed. GitHub artifact retention applies.
 If the version is new, it publishes that same tested package after any protection
 rules on the `Pebble Appstore` environment pass.
 Create the listing in the Pebble Developer Dashboard first, authorize
@@ -175,6 +180,36 @@ name in the watch launcher; sideloads use `pebble.displayName` in `package.json`
 Keep both set to **PushTo Tool**.
 
 Versions already returned by the appstore's developer API are not uploaded again.
+For a transient failure, GitHub's **Re-run failed jobs** can reuse successful
+jobs and their artifacts from the same run. Inspect failure evidence first;
+in particular, Diorite installation has intermittently reset locally. A tag
+run can create a real release and publish it, including on a rerun.
+
+### Release screenshots
+
+After a successful tag run, open it under **Actions**, scroll to **Artifacts**,
+and download each `store-screenshots-<platform>` ZIP. Extract the PNGs and
+upload the desired images to the store listing manually.
+
+The captures use 2026-01-01 12:00 AM UTC, 51.4779° N / 0° E, 45 m and
+51°F weather. Each model gets Jupiter on the main screen, Sirius on the banner,
+M31 on the inverted main screen, and M42 on the inverted banner. Emery also
+gets Betelgeuse with simulated red backlight. Main screens show weather where the layout
+has room; banners do not display weather. Watch screenshots contain framebuffer
+pixels, not the physical backlight, so the Emery red image is explicitly
+colorized to illustrate the red illumination, not a physical-light measurement.
+Positions may differ slightly as the emulator clock advances during capture.
+To reproduce a platform locally, build the release PBW and run:
+
+```sh
+pebble emu-set-location --emulator emery --vnc 51.4779 0
+python3 test/emulator/store_screenshots.py --platform emery \
+  --pbw build/astroslop.pbw --output build/store-screenshots
+```
+
+The script uses the managed VNC emulator and its persistent flash; avoid running
+it alongside another user's emulator. Its logs are under the output's `logs/`
+directory. The Python dependencies are the same as the emulator test suite.
 
 ### Install on a watch
 
