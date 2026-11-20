@@ -22,7 +22,10 @@
 #define SOLAR_CACHE_SIZE 14
 #define BANNER_MS 1500
 #define NOTICE_MS 1000
+#define OBJECT_REPEAT_DELAY_MS 400
 #define OBJECT_REPEAT_MS 200
+#define WORKING_THRESHOLD_MS 100
+#define WORKING_RENDER_MS 20
 #define REFRESH_MIN_MS 1000
 #define REFRESH_MAX_MS 60000
 
@@ -60,6 +63,7 @@ typedef struct {
 typedef enum {
   SEARCH_MATCH,
   SEARCH_NO_MATCH,
+  SEARCH_PENDING,
   SEARCH_FAILED,
   SEARCH_CATALOG_UNAVAILABLE,
 } SearchStatus;
@@ -92,6 +96,22 @@ static EventJob s_event_job;
 static AppTimer *s_banner_timer;
 static AppTimer *s_flashlight_timer;
 static AppTimer *s_save_timer;
+static AppTimer *s_repeat_timer;
+static AppTimer *s_step_timer;
+static int8_t s_repeat_direction;
+static int8_t s_step_direction;
+static uint16_t s_step_repeat_ms;
+static bool s_working;
+/* Drawing must happen before a blocking calculation, so older CPUs assume uncached Solar System
+ * steps are slow; faster watches show the indicator only after measuring a slow one. */
+#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
+static bool s_slow_positions = false;
+#else
+static bool s_slow_positions = true;
+#endif
+static bool s_search_yield;
+static bool s_event_deferred;
+static bool s_search_calculated;
 static bool s_banner_active;
 static bool s_banner_controls;
 static bool s_selection_after_banner;
@@ -111,6 +131,8 @@ static void schedule_event(void);
 static void schedule_refresh(void);
 static void show_selection_banner(void);
 static void click_provider(void *context);
+static void request_step(int direction, uint16_t repeat_ms);
+static void deferred_step(void *context);
 
 static void cancel_timer(AppTimer **timer) {
   if (*timer) {
@@ -185,21 +207,30 @@ static unsigned position_validity(const CatalogObject *object) {
   return object->body_kind == ASTRO_MOON ? 10 : 60;
 }
 
+static bool solar_cached(const PositionCache *cache, const CatalogObject *object, time_t now) {
+  return cache->valid && now >= cache->calculated &&
+         now - cache->calculated < (time_t)position_validity(object);
+}
+
 static bool apparent_for(const Catalog *catalog, const CatalogObject *object,
                          uint16_t index, time_t now, AstroBodyPosition *result) {
   if (!clock_valid(now)) return false;
   PositionCache *cache = catalog == &s_catalog && catalog->provider == CATALOG_SOLAR_SYSTEM &&
                          index < SOLAR_CACHE_SIZE ? &s_solar_cache[index] : NULL;
-  if (cache && cache->valid && now >= cache->calculated &&
-      now - cache->calculated < (time_t)position_validity(object)) {
+  if (cache && solar_cached(cache, object, now)) {
     *result = cache->position;
     return true;
   }
+  time_t start_s, end_s;
+  uint16_t start_ms, end_ms;
+  time_ms(&start_s, &start_ms);
   if (!catalog_apparent(catalog, object, s_ephemeris_ready ? &s_ephemeris : NULL,
                         astro_julian_tt(astro_julian_day(now)), result)) {
     return false;
   }
   if (cache) {
+    time_ms(&end_s, &end_ms);
+    if ((end_s - start_s) * 1000 + end_ms - start_ms > WORKING_THRESHOLD_MS) s_slow_positions = true;
     *cache = (PositionCache){.valid = true, .calculated = now, .position = *result};
   }
   return true;
@@ -301,6 +332,9 @@ static void event_callback(void *context) {
 static void schedule_event(void) {
   cancel_timer(&s_event_timer);
   s_event_valid = false;
+  // Rise/set samples block between held steps, so wait until navigation stops.
+  s_event_deferred = s_repeat_direction != 0;
+  if (s_event_deferred) return;
   time_t now = time(NULL);
   if (!s_settings.show_event || !s_object_valid || !clock_valid(now)) return;
   AstroObserver observer;
@@ -407,6 +441,7 @@ static void update_display(void) {
     format_magnitude(s_screen.magnitude, sizeof(s_screen.magnitude), s_current.position.magnitude);
   }
   s_screen.banner = s_banner_active;
+  s_screen.working = s_working;
   s_screen.filter_notice = s_filter_notice_active;
   if (s_banner_active) {
     s_screen.banner_message = s_banner_message;
@@ -415,7 +450,7 @@ static void update_display(void) {
     s_screen.banner_name = s_object.name;
     s_screen.banner_index = s_object_index + 1;
     s_screen.banner_count = s_catalog.count;
-    if (!s_screen.no_coordinates) {
+    if (!s_screen.no_coordinates && !s_working) {
       format_banner_coordinates(s_screen.banner_coordinates,
                                 sizeof(s_screen.banner_coordinates), &s_horizontal);
       if (s_settings.show_magnitude && s_current.valid &&
@@ -437,6 +472,11 @@ static void update_display(void) {
 static void banner_finished(void *context) {
   (void)context;
   s_banner_timer = NULL;
+  if (s_repeat_direction || s_step_timer) {
+    // Keep navigation controls while a button is held or a step is pending.
+    s_banner_timer = app_timer_register(BANNER_MS, banner_finished, NULL);
+    if (s_banner_timer) return;
+  }
   s_banner_active = false;
   if (s_selection_after_banner) {
     s_selection_after_banner = false;
@@ -524,6 +564,16 @@ static SearchStatus find_object(const Catalog *catalog, uint16_t start, int dire
       .magnitude = result->object.magnitude,
       .magnitude_known = result->object.magnitude_known,
     };
+    if (s_search_yield && catalog == &s_catalog && candidate_index < SOLAR_CACHE_SIZE &&
+        catalog->provider == CATALOG_SOLAR_SYSTEM &&
+        !solar_cached(&s_solar_cache[candidate_index], &result->object, now)) {
+      // Calculate one uncached position per pass so button releases can cancel held steps.
+      if (s_search_calculated) {
+        status = SEARCH_PENDING;
+        break;
+      }
+      s_search_calculated = true;
+    }
     result->position_known = clock_valid(now) &&
       apparent_for(catalog, &result->object, candidate_index, now, &result->position);
     if (clock_valid(now) && !result->position_known) {
@@ -551,7 +601,7 @@ static SearchStatus find_object(const Catalog *catalog, uint16_t start, int dire
     status = SEARCH_MATCH;
     break;
   }
-  if (status != SEARCH_MATCH && failed) status = SEARCH_FAILED;
+  if (status == SEARCH_NO_MATCH && failed) status = SEARCH_FAILED;
   ASTRO_LOG_TIMER_END(end_seconds, end_ms);
   ASTRO_LOG(APP_LOG_LEVEL_DEBUG, "Catalog search: %u objects, %ld ms",
           searched, (long)ASTRO_LOG_TIMER_ELAPSED(end_seconds, start_seconds, end_ms, start_ms));
@@ -616,7 +666,7 @@ static SearchStatus select_catalog(uint8_t catalog_index, bool filter_new,
   return SEARCH_MATCH;
 }
 
-static void cycle_object(int direction) {
+static bool cycle_object(int direction) {
   if (s_filter_notice_active) {
     s_filter_notice_active = false;
     s_filter_notice_acknowledged = true;
@@ -625,19 +675,21 @@ static void cycle_object(int direction) {
       ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not save filter notice acknowledgement");
     }
     show_selection_banner();
-    return;
+    return false;
   }
-  if (!s_object_valid) return;
+  if (!s_object_valid) return false;
   memset(&s_search, 0, sizeof(s_search));
   SearchStatus status = find_object(&s_catalog, s_object_index, direction, false, &s_search);
+  if (status == SEARCH_PENDING) return true;
   if (status != SEARCH_MATCH) {
     start_banner(l10n(status == SEARCH_FAILED ? STR_EVALUATION_FAILED : STR_NO_MATCHES), false);
-    return;
+    return false;
   }
   activate_object(&s_search);
   save_selection_later();
   if (s_banner_controls) s_search.notices.ignored_elevation = false;
   show_filter_banner(s_search.notices);
+  return false;
 }
 
 static void flashlight_off(void *context) {
@@ -684,12 +736,12 @@ static void toggle_flashlight(void) {
 
 static void up_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
-  cycle_object(-1);
+  request_step(-1, 0);
 }
 
 static void down_click(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
-  cycle_object(1);
+  request_step(1, 0);
 }
 
 static void cycle_catalog(int direction) {
@@ -733,6 +785,106 @@ static void banner_select_down(ClickRecognizerRef recognizer, void *context) {
   if (s_banner_controls) cancel_timer(&s_banner_timer);
 }
 
+static void repeat_step(void *context) {
+  (void)context;
+  s_repeat_timer = NULL;
+  if (s_repeat_direction) request_step(s_repeat_direction, OBJECT_REPEAT_MS);
+}
+
+// Held repeats stop when released; a deliberate press always finishes its step.
+static bool step_cancelled(int direction, uint16_t repeat_ms) {
+  if (repeat_ms != OBJECT_REPEAT_MS || s_repeat_direction == direction) return false;
+  s_working = false;
+  update_display();
+  if (s_repeat_direction) request_step(s_repeat_direction, OBJECT_REPEAT_DELAY_MS);
+  return true;
+}
+
+/* The repeat timer restarts only after a step finishes, so slow steps cannot queue repeats
+ * that would keep moving the selection after the button is released. */
+static void run_step(int direction, uint16_t repeat_ms) {
+  s_search_yield = s_working;
+  s_search_calculated = false;
+  bool pending = cycle_object(direction);
+  s_search_yield = false;
+  if (pending && !step_cancelled(direction, repeat_ms)) {
+    s_step_timer = app_timer_register(WORKING_RENDER_MS, deferred_step, NULL);
+    if (s_step_timer) return;
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not continue object step");
+    s_working = false;
+    update_display();
+  }
+  if (pending) return;
+  if (s_working) {
+    s_working = false;
+    update_display();
+  }
+  if (s_repeat_direction == direction) {
+    s_repeat_timer = app_timer_register(repeat_ms, repeat_step, NULL);
+    if (!s_repeat_timer) ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule object repeat");
+  }
+}
+
+static void deferred_step(void *context) {
+  (void)context;
+  s_step_timer = NULL;
+  if (!step_cancelled(s_step_direction, s_step_repeat_ms)) {
+    run_step(s_step_direction, s_step_repeat_ms);
+  }
+}
+
+static bool step_may_be_slow(int direction) {
+  if (!s_slow_positions || !s_object_valid || s_catalog.provider != CATALOG_SOLAR_SYSTEM) {
+    return false;
+  }
+  time_t now = time(NULL);
+  bool filtered = s_settings.min_elevation_enabled || s_settings.max_magnitude_enabled;
+  for (uint16_t step = 1; step <= (filtered ? s_catalog.count : 1); ++step) {
+    uint16_t index = (s_object_index + direction * step + s_catalog.count * 2) % s_catalog.count;
+    CatalogObject object;
+    if (index >= SOLAR_CACHE_SIZE || !catalog_object(&s_catalog, index, &object) ||
+        !solar_cached(&s_solar_cache[index], &object, now)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static void request_step(int direction, uint16_t repeat_ms) {
+  if (s_step_timer) return;
+  if (!s_filter_notice_active && s_settings.banner && step_may_be_slow(direction)) {
+    // Draw the working indicator before the blocking calculation starts.
+    s_working = true;
+    s_step_direction = direction;
+    s_step_repeat_ms = repeat_ms;
+    if (s_banner_active) update_display();
+    else start_banner(NULL, false);
+    s_step_timer = app_timer_register(WORKING_RENDER_MS, deferred_step, NULL);
+    if (s_step_timer) return;
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Could not schedule object step");
+  }
+  run_step(direction, repeat_ms);
+}
+
+static void navigation_pressed(ClickRecognizerRef recognizer, void *context) {
+  (void)context;
+  int direction = click_recognizer_get_button_id(recognizer) == BUTTON_ID_UP ? -1 : 1;
+  s_repeat_direction = direction;
+  cancel_timer(&s_repeat_timer);
+  request_step(direction, OBJECT_REPEAT_DELAY_MS);
+}
+
+static void stop_repeat(void) {
+  s_repeat_direction = 0;
+  cancel_timer(&s_repeat_timer);
+  if (s_event_deferred) schedule_event();
+}
+
+static void navigation_released(ClickRecognizerRef recognizer, void *context) {
+  (void)recognizer; (void)context;
+  stop_repeat();
+}
+
 static void banner_select_up(ClickRecognizerRef recognizer, void *context) {
   (void)recognizer; (void)context;
   if (s_banner_controls && !s_banner_timer) show_selection_banner();
@@ -754,11 +906,13 @@ static void main_back(ClickRecognizerRef recognizer, void *context) {
 static void click_provider(void *context) {
   (void)context;
   if (s_banner_controls) {
-    window_single_repeating_click_subscribe(BUTTON_ID_UP, OBJECT_REPEAT_MS, up_click);
-    window_single_repeating_click_subscribe(BUTTON_ID_DOWN, OBJECT_REPEAT_MS, down_click);
+    window_raw_click_subscribe(BUTTON_ID_UP, navigation_pressed, navigation_released, NULL);
+    window_raw_click_subscribe(BUTTON_ID_DOWN, navigation_pressed, navigation_released, NULL);
     window_single_click_subscribe(BUTTON_ID_BACK, banner_back);
     window_raw_click_subscribe(BUTTON_ID_SELECT, banner_select_down, banner_select_up, NULL);
   } else {
+    // A release is not delivered once the raw handlers are replaced.
+    stop_repeat();
     window_single_click_subscribe(BUTTON_ID_UP, up_click);
     window_single_click_subscribe(BUTTON_ID_DOWN, down_click);
     window_single_click_subscribe(BUTTON_ID_BACK, main_back);
@@ -916,6 +1070,8 @@ static void deinit(void) {
     save_selection(NULL);
   }
   cancel_timer(&s_event_timer);
+  cancel_timer(&s_repeat_timer);
+  cancel_timer(&s_step_timer);
   cancel_timer(&s_banner_timer);
   cancel_timer(&s_flashlight_timer);
   flashlight_off(NULL);

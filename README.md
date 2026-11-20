@@ -44,6 +44,10 @@ round displays may omit secondary fields.
 | Refresh GPS and weather subscription on the main screen | Hold Down |
 | Toggle timed flashlight on the main screen | Hold Select |
 
+Holding Up or Down moves one object at a time and stops when released. Solar
+System positions can take a moment on older watches; the banner then shows
+`...` until the next object is ready.
+
 Open the app's settings from its gear icon in the Pebble mobile app.
 The settings page uses [Clay](https://github.com/pebble-dev/clay), the SDK's
 recommended configuration framework; changes apply when you tap **Save**. The
