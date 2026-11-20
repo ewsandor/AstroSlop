@@ -1141,9 +1141,13 @@ the object where the user left each catalog.
 
 ### 9.5 Font ladder (largest that fits)
 
-Emery and Gabbro center the two captions and readings vertically between the single-line catalog
-label and the footer, distributing the space evenly around and between the four elements.
-They use LECO 60 Regular at 0.1° when the widest azimuth fits, and LECO 42 otherwise, including
+All platforms distribute the space around and between the AZ/EL captions and readings using
+the catalog label and numeric font's visible height, rather than fixed row positions. With no
+footer, Chalk uses an inset from the bottom to keep the readings inside the circular display.
+The clock, temperature, and icons share a vertical center in the top status row. Where present,
+footer text is vertically centered; Gabbro centers the visible one- or two-line block.
+
+Emery and Gabbro use LECO 60 Regular at 0.1° when the widest azimuth fits, and LECO 42 otherwise, including
 at 0.01°. On other platforms the app picks the first font in the ladder whose rendered width
 (`graphics_text_layout_get_content_size`) fits the Az/El row:
 
