@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 static void near(double actual, double expected, double tolerance) {
   if (fabs(actual - expected) > tolerance) {
@@ -19,7 +20,7 @@ static bool fixed_position(void *context, double jd_utc, AstroEquatorial *positi
   return true;
 }
 
-static void test_stellar_pointing(void) {
+static void test_stellar_pointing(bool export) {
   // Astropy/ERFA apparent AltAz from FK5 J2000 coordinates, proper motion,
   // UT1=UTC and zero pressure. Geodetic coordinates are east-positive.
   static const struct {
@@ -40,6 +41,13 @@ static void test_stellar_pointing(void) {
   };
   double max_az = 0, max_el = 0;
   for (size_t i = 0; i < sizeof(references) / sizeof(references[0]); ++i) {
+    if (export) {
+      printf("%.8f,%.8f,%.0f,%.0f,%.8f,%.8f,%.8f,%.0f,%.8f,%.8f\n",
+        references[i].ra, references[i].dec, references[i].pm_ra, references[i].pm_dec,
+        references[i].jd, references[i].lat, references[i].lon, references[i].height,
+        references[i].az, references[i].el);
+      continue;
+    }
     AstroEquatorial position;
     AstroHorizontal horizontal;
     AstroObserver observer = {references[i].lat, references[i].lon, references[i].height};
@@ -58,12 +66,17 @@ static void test_stellar_pointing(void) {
     max_az = fmax(max_az, az_error);
     max_el = fmax(max_el, el_error);
   }
-  printf("ERFA stellar pointing: %zu cases; max az %.5f, el %.5f degrees\n",
+  if (!export) printf("ERFA stellar pointing: %zu cases; max az %.5f, el %.5f degrees\n",
          sizeof(references) / sizeof(references[0]), max_az, max_el);
 }
 
-int main(void) {
-  test_stellar_pointing();
+int main(int argc, char **argv) {
+  if (argc == 2 && strcmp(argv[1], "--references") == 0) {
+    test_stellar_pointing(true);
+    return 0;
+  }
+  assert(argc == 1);
+  test_stellar_pointing(false);
   near(astro_julian_day(0), 2440587.5, 1e-10);
   const double utc_dates[] = {2457754.5, 2461041.5, 2461545.5};
   for (size_t i = 0; i < sizeof(utc_dates) / sizeof(utc_dates[0]); ++i) {

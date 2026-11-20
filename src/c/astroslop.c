@@ -1010,6 +1010,16 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
   }
   calculate_position(false);
   update_display();
+  Tuple *capture = dict_find(iterator, MESSAGE_KEY_TEST_CAPTURE);
+  if (capture && ((capture->type != TUPLE_INT && capture->type != TUPLE_UINT) ||
+                  capture->length != sizeof(capture->value->uint32))) {
+    ASTRO_LOG(APP_LOG_LEVEL_ERROR, "Rejected invalid test capture request");
+  } else if (capture && capture->value->uint32) {
+    APP_LOG(APP_LOG_LEVEL_INFO, "TEST_TARGET %lu %u %u %ld",
+      (unsigned long)capture->value->uint32, s_catalog_index, s_object_index,
+      (long)time(NULL));
+    ui_capture_next_frame(capture->value->uint32);
+  }
 }
 
 static void inbox_dropped(AppMessageResult reason, void *context) {

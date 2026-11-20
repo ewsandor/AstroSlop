@@ -1,6 +1,6 @@
 name: Copilot Setup Steps
 
-# Keep the toolchain below in sync with the build job in build.yml.
+# Keep the toolchain below in sync with .github/actions/setup-pebble/action.yml.
 on:
   workflow_dispatch:
   push:

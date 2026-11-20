@@ -61,7 +61,8 @@
       "CFG_REFRACTION",
       "CFG_TINT",
       "CFG_FLASHLIGHT_ENABLED",
-      "CFG_FLASHLIGHT_MIN"
+      "CFG_FLASHLIGHT_MIN",
+      "TEST_CAPTURE"
     ],
     "resources": {
       "media": [

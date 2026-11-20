@@ -51,6 +51,7 @@ static bool s_font_precise;
 static bool s_font_initialized;
 static bool s_icons_inverted;
 static uint8_t s_icon_errors;
+static uint32_t s_capture;
 
 #ifdef LARGE_COORDINATE_LAYOUT
 static const uint32_t s_icon_resources[] = {
@@ -150,6 +151,13 @@ static void draw_coordinates(GContext *context, GSize size, const Layout *item) 
     graphics_draw_text(context, values[i], s_value_font,
                        GRect(0, value_y - digit_top, width - (item->round ? 0 : 4), 60),
                        GTextOverflowModeFill, value_align, NULL);
+    if (s_capture) {
+      int ink_w = graphics_text_layout_get_content_size(values[i], s_value_font,
+        GRect(0, 0, 500, 60), GTextOverflowModeFill, value_align).w;
+      int x = item->round ? (width - ink_w) / 2 : width - 4 - ink_w;
+      APP_LOG(APP_LOG_LEVEL_INFO, "TEST_ROW %lu %d %d %d %d %d",
+              (unsigned long)s_capture, i, x, value_y, ink_w, digit_h);
+    }
     y += caption_h + digit_h;
   }
 }
@@ -438,6 +446,21 @@ static void canvas_update(Layer *layer, GContext *context) {
   graphics_context_set_stroke_color(context, foreground);
   if (s_screen->banner) draw_banner(context, bounds, &item);
   else draw_main(context, bounds, &item);
+  if (s_capture) {
+    APP_LOG(APP_LOG_LEVEL_INFO, "TEST_SCREEN %lu %d %d %d %s|%s|%s",
+      (unsigned long)s_capture, s_screen->banner, s_screen->inverted,
+      s_screen->precise, s_screen->label,
+      s_screen->azimuth, s_screen->elevation);
+    APP_LOG(APP_LOG_LEVEL_INFO, "TEST_DETAIL %lu %d %d %d %s|%s|%s|%s|%s",
+      (unsigned long)s_capture, s_screen->flashlight, s_screen->filter_notice,
+      s_screen->icon, s_screen->clock, s_screen->temperature,
+      s_screen->event, s_screen->magnitude, s_screen->reason);
+    if (s_screen->banner) {
+      APP_LOG(APP_LOG_LEVEL_INFO, "TEST_BANNER %lu %s", (unsigned long)s_capture,
+              s_screen->banner_message);
+    }
+    s_capture = 0;
+  }
 }
 
 static void window_load(Window *window) {
@@ -487,5 +510,10 @@ void ui_update(const ScreenState *state) {
   set_icon_theme(state->inverted);
   update_icons(state);
   s_screen = state;
+  if (s_canvas) layer_mark_dirty(s_canvas);
+}
+
+void ui_capture_next_frame(uint32_t request) {
+  s_capture = request;
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
