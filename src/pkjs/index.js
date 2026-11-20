@@ -35,6 +35,7 @@ var settings;
 var lastFix = null;
 var platform = '';
 var subscription = null;
+var weatherGeneration = 0;
 var requestGeneration = 0;
 var queue = [];
 var sending = false;
@@ -151,6 +152,7 @@ function unsubscribeWeather() {
 
 function subscribeWeather() {
   unsubscribeWeather();
+  var generation = ++weatherGeneration;
   if (!settings.useWeather) {
     clearWeather();
     return;
@@ -160,6 +162,19 @@ function subscribeWeather() {
     clearWeather();
     return;
   }
+  permissionState().then(function(state) {
+    if (generation !== weatherGeneration) return;
+    // The setting stays on; the watch falls back to standard temperature until access returns.
+    if (state === 'denied') {
+      console.log('Weather unavailable; Location permission is denied');
+      clearWeather();
+      return;
+    }
+    startWeather();
+  });
+}
+
+function startWeather() {
   subscription = Pebble.subscribeToSource({
     category: 'weather',
     item: 'location',
@@ -311,7 +326,10 @@ var clay = new Clay(buildConfig({catalogCredits: catalogCredits}), settingsPageS
                     {autoHandleEvents: false});
 
 function permissionNotice(state) {
-  if (state === 'denied') return 'Location permission is off for this app; GPS and weather are unavailable.';
+  if (state === 'denied') {
+    return 'Location permission is off for this app; GPS and local weather are unavailable. ' +
+      'Refraction correction uses a standard 10\u00b0C until Location is allowed.';
+  }
   if (state === 'prompt') return 'Allow Location in the Pebble app if prompted.';
   return '';
 }
@@ -368,17 +386,7 @@ function saveSettingsPage(response) {
     if (!validSetting(name, value)) console.log('Ignoring invalid setting: ' + name);
     else if (value !== settings[name]) changes[name] = value;
   });
-  if (changes.useWeather !== 1) {
-    applyChanges(changes);
-    return;
-  }
-  permissionState().then(function(state) {
-    if (state === 'denied' || state === 'unavailable') {
-      console.log('Weather not enabled; Location permission is ' + state);
-      delete changes.useWeather;
-    }
-    applyChanges(changes);
-  });
+  applyChanges(changes);
 }
 
 Pebble.addEventListener('ready', function() {

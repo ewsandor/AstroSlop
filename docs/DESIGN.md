@@ -671,7 +671,8 @@ sequenceDiagram
 ```
 
 If the `Location` permission is `"prompt"`, the weather subscription may trigger the mobile app's
-permission flow. A denied or unavailable permission prevents enabling weather. Details are in §3.5.
+permission flow. A denied permission leaves the setting on, but PKJS skips the subscription and
+sends `WX_CLEAR`, so refraction uses 10 °C. The settings page shows a warning. Details are in §3.5.
 
 ### 6.7 UI modes
 
@@ -1276,7 +1277,7 @@ remain in `localStorage`; watch-relevant settings are also persisted by the C ap
 | | Show local time | toggle | on |
 | | Show next rise/set | toggle | on |
 | | Show magnitude | toggle | on |
-| | Use local weather (temperature in the status bar, also used for refraction) | toggle. Requires the weather plugin and an available Location permission; unavailable or expired data falls back to 10 °C for refraction. | off |
+| | Use local weather (temperature in the status bar, also used for refraction) | toggle. Requires the weather plugin and an available Location permission; denied permission, unavailable or expired data falls back to 10 °C for refraction, and the settings page warns when Location is denied. | on |
 | | Coordinate precision | select: 0.1° / 0.01° | 0.1° |
 | | Show name banner when switching | toggle | on |
 | | Colors | select: Black on white / White on black | Black on white |

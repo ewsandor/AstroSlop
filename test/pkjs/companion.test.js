@@ -119,9 +119,10 @@ async function main() {
   assert.equal(sent.length, count);
 
   await page({CFG_USE_WEATHER: true});
-  assert.equal(subscriptions.length, 3);
+  let weatherSubs = subscriptions.length;
+  assert.ok(weatherSubs >= 1);
   const expiry = Date.now() + 1800000;
-  subscriptions[2].options.onData({
+  subscriptions.at(-1).options.onData({
     validUntilMs: expiry,
     instances: [{properties: {temperature: {numericValue: {value: 68, unit: '\u00b0F'}}}}]
   });
@@ -130,26 +131,42 @@ async function main() {
   assert.equal(weather.WX_TEMP_UNIT, 1);
   assert.equal(weather.WX_EXPIRES, Math.floor(expiry / 1000));
   listeners.appmessage({payload: {REQ_LOCATION: 1}});
-  assert.equal(subscriptions[2].unsubscribed, true);
-  assert.equal(subscriptions.length, 4);
-  subscriptions[3].options.onData({
+  assert.equal(subscriptions.at(-1).unsubscribed, true);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(subscriptions.length, weatherSubs + 1);
+  subscriptions.at(-1).options.onData({
     instances: [{properties: {temperature: {numericValue: {value: 10, unit: '\u00b0C'}}}}]
   });
   weather = sent.at(-1);
   assert.ok(weather.WX_EXPIRES >= Math.floor(Date.now() / 1000) + 10799);
-  subscriptions[3].options.onError(undefined);
+  subscriptions.at(-1).options.onError(undefined);
   assert.equal(sent.at(-1).WX_CLEAR, 1);
 
   await page({CFG_USE_WEATHER: false});
   permission = 'denied';
   shown = await open();
   assert.match(JSON.stringify(shown.config), /permission is off/);
-  count = sent.length;
+  assert.match(JSON.stringify(shown.config), /standard 10\u00b0C/);
+  weatherSubs = subscriptions.length;
   await page({CFG_USE_WEATHER: true});
-  assert.equal(sent.length, count);
+  assert.equal(sent.at(-2).CFG_USE_WEATHER, 1);
+  assert.equal(sent.at(-1).WX_CLEAR, 1);
+  assert.equal(subscriptions.length, weatherSubs);
+  listeners.appmessage({payload: {REQ_LOCATION: 1}});
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(subscriptions.length, weatherSubs);
+  assert.equal(JSON.parse(storage['astroslop.settings.v1']).useWeather, 1);
+  listeners.ready({});
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(sent.at(-1).WX_CLEAR, 1);
+  assert.equal(subscriptions.length, weatherSubs);
+  permission = 'granted';
+  await page({CFG_USE_WEATHER: false});
   delete context.Pebble.permissions;
   await page({CFG_USE_WEATHER: true});
   assert.equal(sent.at(-1).CFG_USE_WEATHER, 1);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(subscriptions.length, weatherSubs + 1);
 
   await page({MANUAL: true, LATITUDE: '10.5', LONGITUDE: '-20.25', ELEVATION: '100'});
   fix = sent.at(-1);
