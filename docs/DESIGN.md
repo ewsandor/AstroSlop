@@ -1105,6 +1105,14 @@ the object where the user left each catalog.
   main screen's precision setting. When "Show magnitude" is enabled and a magnitude is known, the
   same line also shows it to one decimal place. Other devices omit this line to preserve banner
   spacing; missing coordinates simply hide the preview without adding a warning.
+* While the banner is open, holding Up or Down repeats object steps. The next repeat is scheduled
+  only after the previous step finishes, so slow calculations cannot queue steps that continue
+  after release. Pebble apps are single-threaded, so the indicator must be drawn before a blocking
+  calculation starts. Platforms other than emery and gabbro therefore show `...` before every
+  uncached Solar System step; emery and gabbro show it only after an uncached calculation has
+  taken over 100 ms. While `...` is shown, the step replaces the preview and calculates one
+  position per timer callback so a release can cancel a held repeat. A single press always
+  completes its step. Rise/set sampling waits until the button is released.
 * The same canvas shows short confirmations such as "Updating location...", "Flashlight on" and
   "Flashlight off".
 * The object/catalog banner can be turned off in settings (UX-7). The short confirmations are always

@@ -364,7 +364,12 @@ static void draw_banner(GContext *context, GRect bounds, const Layout *item) {
     fonts_get_system_font(width >= 200 ? FONT_KEY_GOTHIC_28_BOLD : FONT_KEY_GOTHIC_24_BOLD),
     GRect(side, secondary_y, width - 2 * side, 70),
     GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
-  if (width >= 200 && height >= 220 && s_screen->banner_coordinates[0]) {
+  if (s_screen->working) {
+    int working_y = width >= 200 && height >= 220 ? secondary_y + 64 :
+                    height - (item->round ? 48 : 34);
+    draw_text(context, "...", FONT_KEY_GOTHIC_28_BOLD,
+              GRect(side, working_y, width - 2 * side, 34), GTextAlignmentCenter);
+  } else if (width >= 200 && height >= 220 && s_screen->banner_coordinates[0]) {
     const char *preview_fonts[] = {FONT_KEY_GOTHIC_18, FONT_KEY_GOTHIC_14};
     const char *preview_font = fit_font(s_screen->banner_coordinates, width - 2 * side,
                                         preview_fonts, ARRAY_LENGTH(preview_fonts));
@@ -425,6 +430,10 @@ void ui_deinit(void) {
   if (s_window) window_destroy(s_window);
   s_window = NULL;
   s_screen = NULL;
+}
+
+void ui_set_click_config_provider(ClickConfigProvider click_provider) {
+  if (s_window) window_set_click_config_provider(s_window, click_provider);
 }
 
 void ui_update(const ScreenState *state) {
