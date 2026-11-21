@@ -12,6 +12,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+MANUAL_WORKFLOW = (ROOT / ".github/workflows/manual-publish.yml").read_text(encoding="utf-8")
 
 
 def job(name):
@@ -32,6 +33,16 @@ def shell_step(name, step):
 
 
 class ReleaseWorkflowTests(unittest.TestCase):
+    def test_manual_ticket_close_records_deployment(self):
+        self.assertIn("types: [closed]", MANUAL_WORKFLOW)
+        self.assertIn("github.event.issue.closed_by.login == 'ewsandor'", MANUAL_WORKFLOW)
+        self.assertIn("Publish\\ PushTo\\ Tool\\ v", MANUAL_WORKFLOW)
+        self.assertIn('index("ewsandor") != null', MANUAL_WORKFLOW)
+        self.assertIn("Pebble Appstore", MANUAL_WORKFLOW)
+        self.assertIn("deployments/$deployment_id/statuses", MANUAL_WORKFLOW)
+        self.assertIn("manual-publish-verification.json", MANUAL_WORKFLOW)
+        self.assertIn("GitHub deployment", MANUAL_WORKFLOW)
+
     def test_release_version_matches_package_metadata(self):
         package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
         lockfile = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))

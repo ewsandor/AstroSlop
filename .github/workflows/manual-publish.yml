@@ -1,0 +1,122 @@
+name: Record Manual Pebble Publication
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: read
+  deployments: write
+  issues: write
+  id-token: write
+
+env:
+  APPSTORE_API_BASE: https://appstore-api.repebble.com
+
+jobs:
+  record:
+    if: github.event.issue.closed_by.login == 'ewsandor'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate ticket and extract version
+        id: ticket
+        env:
+          TITLE: ${{ github.event.issue.title }}
+          ASSIGNEES: ${{ toJSON(github.event.issue.assignees.*.login) }}
+        run: |
+          set -euo pipefail
+          if ! jq -e 'index("ewsandor") != null' <<<"$ASSIGNEES" >/dev/null; then
+            echo "This ticket is not assigned to @ewsandor; no deployment will be recorded."
+            echo "matched=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$TITLE" =~ ^Publish\ PushTo\ Tool\ v([0-9]+\.[0-9]+\.[0-9]+([.+-][A-Za-z0-9.+-]+)?)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            echo "matched=true" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "Ticket title does not identify a PushTo Tool release."
+            echo "matched=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.ticket.outputs.matched == 'true'
+        with:
+          ref: refs/tags/v${{ steps.ticket.outputs.version }}
+          persist-credentials: false
+
+      - name: Verify package and App Store version
+        if: steps.ticket.outputs.matched == 'true'
+        id: verify
+        env:
+          TITLE_VERSION: ${{ steps.ticket.outputs.version }}
+        run: |
+          set -euo pipefail
+          VERSION=$(jq -er '.version' package.json)
+          test "$VERSION" = "$TITLE_VERSION" || {
+            printf '{"status":"failed","reason":"The tag package version %s does not match ticket version %s."}\n' "$VERSION" "$TITLE_VERSION" > manual-publish-verification.json
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            echo "reason=The tag package version $VERSION does not match ticket version $TITLE_VERSION." >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          APP_UUID=$(jq -er '.pebble.uuid' package.json)
+          python3 tools/manual_publish_completion.py \
+            --version "$VERSION" \
+            --app-uuid "$APP_UUID" \
+            --api-base "$APPSTORE_API_BASE" \
+            --report manual-publish-verification.json
+
+      - name: Record deployment
+        if: steps.ticket.outputs.matched == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.ticket.outputs.version }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          CLOSER: ${{ github.event.issue.closed_by.login }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          set -euo pipefail
+          description="Manual publication for v$VERSION; closed by @$CLOSER via issue #$ISSUE_NUMBER"
+          tag="v$VERSION"
+
+          deployment=$(gh api --method POST "repos/$GH_REPO/deployments" \
+            -f ref="$tag" \
+            -f environment="Pebble Appstore" \
+            -f description="$description" \
+            -f task="manual-publish" 2>/dev/null || true)
+
+          if [ -z "$deployment" ] || [ "$(jq -r 'type' <<<"$deployment")" != "object" ]; then
+            deployment=$(gh api "repos/$GH_REPO/deployments?environment=Pebble%20Appstore&ref=$tag&per_page=100" \
+              --jq --arg description "$description" '.[] | select(.description == $description)' | head -n1)
+            if [ -n "$deployment" ]; then
+              deployment_id=$(jq -r '.id' <<<"$deployment")
+            else
+              echo "Could not create or find a deployment." >&2
+              exit 1
+            fi
+          else
+            deployment_id=$(jq -r '.id' <<<"$deployment")
+          fi
+
+          if [ -f manual-publish-verification.json ]; then
+            status=$(jq -r '.status' manual-publish-verification.json)
+            reason=$(jq -r '.reason // "Manual publication closure recorded."' manual-publish-verification.json)
+          else
+            status=failed
+            reason="Verification could not run."
+          fi
+
+          if [ "$status" = "published" ]; then
+            state=success
+          else
+            state=failure
+          fi
+
+          gh api --method POST "repos/$GH_REPO/deployments/$deployment_id/statuses" \
+            -f state="$state" \
+            -f description="$reason" \
+            -f environment="Pebble Appstore" \
+            -f environment_url="https://developer.repebble.com/dashboard" \
+            -f log_url="$ISSUE_URL"
+          gh issue comment "$ISSUE_NUMBER" --body "GitHub deployment **$state** recorded for Pebble Appstore v$VERSION. Closure by @$CLOSER is traceable in the repository Deployments section."
