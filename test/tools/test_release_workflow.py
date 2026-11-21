@@ -35,7 +35,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
     def test_release_version_matches_package_metadata(self):
         package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
         lockfile = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
-        self.assertEqual(package["version"], "0.3.2")
+        self.assertEqual(package["version"], "0.4.0")
         self.assertEqual(lockfile["version"], package["version"])
         self.assertEqual(lockfile["packages"][""]["version"], package["version"])
 
