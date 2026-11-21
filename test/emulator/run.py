@@ -208,6 +208,10 @@ def parse_angles(values, precise):
     return angles
 
 
+def supports_precise_display(platform):
+    return platform not in LOW_MEMORY_PLATFORMS
+
+
 def validate_image(path, platform, rows, inverted):
     with Image.open(path) as source:
         image = source.convert("L")
@@ -649,8 +653,9 @@ print("TEST_INTERACTIONS_COMPLETE")
                 raise AssertionError(f"Weather temperature missing from screen state: {self.details[4]!r}")
             warm_screen = self.capture({"WX_TEMP_DC": 800, "WX_TEMP_UNIT": 0,
                                         "WX_EXPIRES": now + 3600})[0]
-            cold = parse_angles((cold_screen[4], cold_screen[5]), True)[1]
-            warm = parse_angles((warm_screen[4], warm_screen[5]), True)[1]
+            precise = supports_precise_display(self.platform)
+            cold = parse_angles((cold_screen[4], cold_screen[5]), precise)[1]
+            warm = parse_angles((warm_screen[4], warm_screen[5]), precise)[1]
             if cold - warm < 0.04:
                 raise AssertionError(f"Weather did not affect refraction: cold={cold}, warm={warm}")
             self.capture({"WX_CLEAR": 1})
@@ -824,7 +829,7 @@ def run_suite(args, project, platforms, output):
                     print(f"{mode}/{platform}: live-clock-change", flush=True)
                     report["cases"].append(emulator.check_clock_change(cases, objects))
                 for case in pointing:
-                    if case.precise and platform in LOW_MEMORY_PLATFORMS:
+                    if case.precise and not supports_precise_display(platform):
                         reason = "0.01-degree display is unavailable on 64 KB platforms"
                         report["skipped"].append({"case": case.name, "reason": reason})
                         print(f"{mode}/{platform}: SKIPPED {case.name} ({reason})", flush=True)

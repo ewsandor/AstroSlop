@@ -74,6 +74,12 @@ class RunnerTests(unittest.TestCase):
             with self.subTest(values=values), self.assertRaises(AssertionError):
                 run.parse_angles(values, False)
 
+    def test_precise_display_support_tracks_platform_memory(self):
+        for platform in ("basalt", "chalk", "diorite", "flint"):
+            self.assertFalse(run.supports_precise_display(platform))
+        for platform in ("emery", "gabbro"):
+            self.assertTrue(run.supports_precise_display(platform))
+
     def test_rendering_rejects_blank_clipped_and_misaligned_rows(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "screen.png"
