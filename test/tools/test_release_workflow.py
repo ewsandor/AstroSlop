@@ -26,11 +26,17 @@ class ReleaseWorkflowTests(unittest.TestCase):
         publish = job("publish")
         for text in (plan, publish):
             self.assertIn("id-token: write", text)
-            self.assertIn("audience=https://appstore-api.repebble.com", text)
             self.assertIn("Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN", text)
-        self.assertIn("Authorization: ******", plan)
-        self.assertIn("Authorization: ******", publish)
-        self.assertIn("https://appstore-api.repebble.com/api/v1/developer/me", plan)
+            self.assertIn("audience=$APPSTORE_API_BASE", text)
+        self.assertIn("APPSTORE_API_BASE: https://appstore-api.repebble.com", WORKFLOW)
+        self.assertIn("$APPSTORE_API_BASE/api/v1/developer/me", plan)
+        self.assertIn("$APPSTORE_API_BASE/api/dashboard/apps/$APP_ID/releases", publish)
+
+    def test_store_listing_identity_matches_package(self):
+        package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+        pebble = package["pebble"]
+        self.assertEqual(pebble["displayName"], "PushTo Tool")
+        self.assertRegex(pebble["uuid"], r"(?i)^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
 
     def test_release_precedes_tests_and_store_work_is_gated(self):
         release = job("release")
