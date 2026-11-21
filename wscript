@@ -15,6 +15,8 @@ out = 'build'
 
 def options(ctx):
     ctx.load('pebble_sdk')
+    ctx.add_option('--mode', choices=('release', 'debug'), default='release',
+                   help='Build mode: release (default) or debug')
 
 
 def generate_resources():
@@ -22,11 +24,10 @@ def generate_resources():
         catalog_files = json.load(registry_file)['catalogs']
     generators = [
         ('tools/build_catalogs.py',
-         ['resources/generated/catalogs.bin', 'resources/generated/catalog_credits.inc',
-          'resources/generated/catalog_credits.json', 'CREDITS.md'],
+         ['resources/generated/catalogs.bin', 'resources/generated/catalog_credits.json',
+          'CREDITS.md'],
          ['catalogs/catalogs.json'] + [os.path.join('catalogs', name) for name in catalog_files],
-         ['--about-header', 'resources/generated/catalog_credits.inc',
-          '--credits-json', 'resources/generated/catalog_credits.json',
+         ['--credits-json', 'resources/generated/catalog_credits.json',
           '--credits-md', 'CREDITS.md']),
         ('tools/build_ephemeris.py', ['resources/generated/ephemeris.bin'],
          ['ephemeris/minor_planets.csv'] +
@@ -40,21 +41,6 @@ def generate_resources():
         if any(not os.path.exists(path) or os.path.getmtime(path) < newest for path in outputs):
             subprocess.check_call([sys.executable, script, '--output', outputs[0]] + extra_args)
 
-    with open('package.json', encoding='utf-8') as manifest:
-        version = json.load(manifest)['version']
-    if not isinstance(version, str):
-        raise ValueError('package.json version must be a string')
-    version_header = 'resources/generated/app_version.inc'
-    contents = '#define APP_VERSION {}\n'.format(json.dumps(version))
-    current_contents = None
-    if os.path.exists(version_header):
-        with open(version_header, encoding='utf-8') as existing:
-            current_contents = existing.read()
-    if current_contents != contents:
-        with open(version_header, 'w', encoding='utf-8') as output:
-            output.write(contents)
-
-
 def configure(ctx):
     """
     This method is used to configure your build. ctx.load(`pebble_sdk`) automatically configures
@@ -64,6 +50,19 @@ def configure(ctx):
     """
     generate_resources()
     ctx.load('pebble_sdk')
+    if ctx.options.mode == 'debug':
+        ctx.env.PROJECT_INFO['uuid'] = '7a86959b-99d5-4c48-b075-9ae23c165744'
+        debug_name = ctx.env.PROJECT_INFO['displayName'] + ' Debug'
+        ctx.env.PROJECT_INFO['displayName'] = debug_name
+        ctx.env.PROJECT_INFO['shortName'] = debug_name
+        ctx.env.PROJECT_INFO['longName'] = debug_name
+        for platform in ctx.env.TARGET_PLATFORMS:
+            ctx.all_envs[platform].append_value('DEFINES', ['ASTRO_DEBUG=1'])
+    else:
+        for platform in ctx.env.TARGET_PLATFORMS:
+            ctx.all_envs[platform].append_value(
+                'CFLAGS', ['-flto', '-fno-fat-lto-objects'])
+            ctx.all_envs[platform].append_value('LINKFLAGS', ['-flto'])
 
 
 def build(ctx):

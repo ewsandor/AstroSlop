@@ -19,7 +19,6 @@ typedef struct {
   CatalogProvider provider;
   char title[40];
   char short_title[24];
-  char credit[128];
 } Catalog;
 
 typedef struct {

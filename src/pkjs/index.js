@@ -5,8 +5,10 @@ var Clay = require('@rebble/clay');
 var buildConfig = require('./config');
 var catalogCredits = require('../../resources/generated/catalog_credits.json');
 
-var SETTINGS_KEY = 'astroslop.settings.v1';
-var LAST_FIX_KEY = 'astroslop.lastGpsFix.v1';
+var SETTINGS_KEY = 'pebble-pushto-tool.settings.v1';
+var LAST_FIX_KEY = 'pebble-pushto-tool.lastGpsFix.v1';
+var LEGACY_SETTINGS_KEY = 'astroslop.settings.v1';
+var LEGACY_LAST_FIX_KEY = 'astroslop.lastGpsFix.v1';
 var WATCH_KEYS = {
   labelMode: 'CFG_LABEL_MODE', showTime: 'CFG_SHOW_TIME',
   showEvent: 'CFG_SHOW_EVENT', showMagnitude: 'CFG_SHOW_MAG',
@@ -35,13 +37,14 @@ var settings;
 var lastFix = null;
 var platform = '';
 var subscription = null;
+var weatherGeneration = 0;
 var requestGeneration = 0;
 var queue = [];
 var sending = false;
 
 function defaults() {
   return {
-    labelMode: 2, showTime: 1, showEvent: 1, showMagnitude: 1, useWeather: 0,
+    labelMode: 2, showTime: 1, showEvent: 1, showMagnitude: 1, useWeather: 1,
     precision: 0, banner: 1, inverted: 0,
     minElevationEnabled: 1, minElevation: 0, maxMagnitudeEnabled: 0, maxMagnitude: 8,
     refraction: 1, redTint: 1, flashlightEnabled: platform === 'emery' ? 1 : 0,
@@ -71,9 +74,17 @@ function readStorage(key) {
   }
 }
 
+function readMigratedStorage(key, legacyKey) {
+  var value = readStorage(key);
+  if (value !== null) return value;
+  value = readStorage(legacyKey);
+  if (value !== null) localStorage.setItem(key, JSON.stringify(value));
+  return value;
+}
+
 function loadSettings() {
   var result = defaults();
-  var stored = readStorage(SETTINGS_KEY);
+  var stored = readMigratedStorage(SETTINGS_KEY, LEGACY_SETTINGS_KEY);
   if (stored && typeof stored === 'object') {
     Object.keys(result).forEach(function(name) {
       if (Object.prototype.hasOwnProperty.call(stored, name)) {
@@ -136,6 +147,12 @@ function clearWeather() {
   send({WX_CLEAR: 1});
 }
 
+function errorDescription(error) {
+  if (!error) return 'unknown error';
+  return (error.code === undefined ? 'unknown' : error.code) +
+    (error.message ? ' ' + error.message : '');
+}
+
 function unsubscribeWeather() {
   if (subscription) {
     subscription.unsubscribe();
@@ -145,6 +162,7 @@ function unsubscribeWeather() {
 
 function subscribeWeather() {
   unsubscribeWeather();
+  var generation = ++weatherGeneration;
   if (!settings.useWeather) {
     clearWeather();
     return;
@@ -154,6 +172,19 @@ function subscribeWeather() {
     clearWeather();
     return;
   }
+  permissionState().then(function(state) {
+    if (generation !== weatherGeneration) return;
+    // The setting stays on; the watch falls back to standard temperature until access returns.
+    if (state === 'denied') {
+      console.log('Weather unavailable; Location permission is denied');
+      clearWeather();
+      return;
+    }
+    startWeather();
+  });
+}
+
+function startWeather() {
   subscription = Pebble.subscribeToSource({
     category: 'weather',
     item: 'location',
@@ -189,7 +220,7 @@ function subscribeWeather() {
       });
     },
     onError: function(error) {
-      console.log('Weather unavailable: ' + error.code + ' ' + error.message);
+      console.log('Weather unavailable: ' + errorDescription(error));
       clearWeather();
     }
   });
@@ -252,7 +283,7 @@ function requestLocation(forced) {
     sendFix(fix, 0);
   }, function(error) {
     if (generation !== requestGeneration) return;
-    console.log('Phone geolocation failed: ' + error.code + ' ' + error.message);
+    console.log('Phone geolocation failed: ' + errorDescription(error));
     permissionState().then(function(state) {
       if (generation !== requestGeneration) return;
       send({LOC_ERROR: state === 'denied' ? 2 : state === 'prompt' ? 1 : 3});
@@ -305,7 +336,10 @@ var clay = new Clay(buildConfig({catalogCredits: catalogCredits}), settingsPageS
                     {autoHandleEvents: false});
 
 function permissionNotice(state) {
-  if (state === 'denied') return 'Location permission is off for Astronomy Tools; GPS and weather are unavailable.';
+  if (state === 'denied') {
+    return 'Location permission is off for this app; GPS and local weather are unavailable. ' +
+      'Refraction correction uses a standard 10\u00b0C until Location is allowed.';
+  }
   if (state === 'prompt') return 'Allow Location in the Pebble app if prompted.';
   return '';
 }
@@ -362,28 +396,18 @@ function saveSettingsPage(response) {
     if (!validSetting(name, value)) console.log('Ignoring invalid setting: ' + name);
     else if (value !== settings[name]) changes[name] = value;
   });
-  if (changes.useWeather !== 1) {
-    applyChanges(changes);
-    return;
-  }
-  permissionState().then(function(state) {
-    if (state === 'denied' || state === 'unavailable') {
-      console.log('Weather not enabled; Location permission is ' + state);
-      delete changes.useWeather;
-    }
-    applyChanges(changes);
-  });
+  applyChanges(changes);
 }
 
 Pebble.addEventListener('ready', function() {
   var watch = Pebble.getActiveWatchInfo();
   platform = watch && watch.platform ? watch.platform : '';
   settings = loadSettings();
-  lastFix = readStorage(LAST_FIX_KEY);
+  lastFix = readMigratedStorage(LAST_FIX_KEY, LEGACY_LAST_FIX_KEY);
   send({JS_READY: 1}, true);
   sendSettings();
   if (settings.useWeather) subscribeWeather();
-  console.log('AstroSlop phone companion ready');
+  console.log('Pebble PushTo Tool phone companion ready');
 });
 
 Pebble.addEventListener('appmessage', function(event) {

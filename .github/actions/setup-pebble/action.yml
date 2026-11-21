@@ -1,0 +1,41 @@
+name: Setup Pebble
+description: Install the SDK and dependencies for deterministic builds and emulator tests
+inputs:
+  sdk-version:
+    description: Pebble SDK version
+    default: "4.44"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install system dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libsdl2-2.0-0 libglib2.0-0t64 libpixman-1-0 zlib1g libsndio7.0 libpng16-16t64
+    - uses: astral-sh/setup-uv@v5
+    - name: Install pebble tool
+      shell: bash
+      run: uv tool install pebble-tool==5.2.0
+    - uses: actions/cache@v4
+      id: sdk
+      with:
+        path: ~/.local/share/pebble-sdk
+        key: pebble-sdk-${{ runner.os }}-${{ inputs.sdk-version }}
+    - name: Install and select Pebble SDK
+      shell: bash
+      env:
+        SDK_VERSION: ${{ inputs.sdk-version }}
+      run: |
+        if [ ! -f "$HOME/.local/share/pebble-sdk/SDKs/$SDK_VERSION/sdk-core/manifest.json" ]; then
+          pebble sdk install "$SDK_VERSION"
+        fi
+        pebble sdk activate "$SDK_VERSION"
+    - name: Install npm dependencies
+      shell: bash
+      run: npm ci

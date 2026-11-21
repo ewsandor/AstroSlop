@@ -10,7 +10,10 @@ async function main() {
   const sent = [];
   const gps = [];
   const subscriptions = [];
-  const storage = {};
+  const storage = {
+    'astroslop.settings.v1': JSON.stringify({useWeather: 1}),
+    'astroslop.lastGpsFix.v1': JSON.stringify({latitude: 51.5, longitude: -0.1, elevation: 0})
+  };
   let permission = 'granted';
   const opened = [];
   let clay;
@@ -62,7 +65,12 @@ async function main() {
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../src/pkjs/index.js'), 'utf8'),
                      context);
   listeners.ready({});
+  assert.equal(JSON.parse(storage['pebble-pushto-tool.settings.v1']).useWeather, 1);
+  assert.deepEqual(JSON.parse(storage['pebble-pushto-tool.lastGpsFix.v1']),
+                   {latitude: 51.5, longitude: -0.1, elevation: 0});
   assert.equal(sent[0].JS_READY, 1);
+  assert.equal(sent[1].CFG_USE_WEATHER, 1);
+  assert.equal(sent[1].CFG_REFRACTION, 1);
   assert.equal(sent[1].CFG_FLASHLIGHT_ENABLED, 1);
   listeners.appmessage({payload: {REQ_LOCATION: 2}});
   assert.equal(gps[0].options.maximumAge, 0);
@@ -72,6 +80,10 @@ async function main() {
   assert.equal(fix.LOC_LON_E6, -100000);
   assert.equal(fix.LOC_ALT_VALID, 0);
   assert.equal(fix.LOC_ALT_M, 0);
+  listeners.appmessage({payload: {REQ_LOCATION: 1}});
+  gps.at(-1).failure(undefined);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(sent.at(-1).LOC_ERROR, 3);
 
   function page(values) {
     const response = {};
@@ -88,12 +100,19 @@ async function main() {
   assert.equal(opened.length, 1);
   assert.equal(shown.settings.CFG_MIN_ELEV, 0);
   assert.equal(shown.settings.CFG_SHOW_TIME, true);
+  assert.equal(shown.settings.CFG_USE_WEATHER, true);
+  assert.equal(shown.settings.CFG_REFRACTION, true);
   assert.equal(shown.settings.CFG_LABEL_MODE, '2');
   assert.equal(shown.settings.LATITUDE, '51.4778');
   assert.equal(shown.meta.userData.lastFix.latitude, 51.5);
   const configText = JSON.stringify(shown.config);
-  assert.ok(configText.includes('Astronomy Tools ' + require('../../package.json').version + '.'));
+  const { pebble, version } = require('../../package.json');
+  assert.ok(configText.includes(`${pebble.displayName} ${version}.`));
+  assert.match(configText, /Minor-planet elements cover 2026-2036/);
+  assert.match(configText, /Sonia Keys \(MIT\)/);
+  assert.match(configText, /Pebble iconography, Apache-2\.0/);
   assert.match(configText, /Test source/);
+  assert.match(configText, /personal and scientific use only/);
   assert.match(configText, /bending of light by the atmosphere/);
   assert.match(configText, /larger numbers are dimmer/);
 
@@ -106,9 +125,10 @@ async function main() {
   assert.equal(sent.length, count);
 
   await page({CFG_USE_WEATHER: true});
-  assert.equal(subscriptions.length, 1);
+  let weatherSubs = subscriptions.length;
+  assert.ok(weatherSubs >= 1);
   const expiry = Date.now() + 1800000;
-  subscriptions[0].options.onData({
+  subscriptions.at(-1).options.onData({
     validUntilMs: expiry,
     instances: [{properties: {temperature: {numericValue: {value: 68, unit: '\u00b0F'}}}}]
   });
@@ -117,24 +137,42 @@ async function main() {
   assert.equal(weather.WX_TEMP_UNIT, 1);
   assert.equal(weather.WX_EXPIRES, Math.floor(expiry / 1000));
   listeners.appmessage({payload: {REQ_LOCATION: 1}});
-  assert.equal(subscriptions[0].unsubscribed, true);
-  assert.equal(subscriptions.length, 2);
-  subscriptions[1].options.onData({
+  assert.equal(subscriptions.at(-1).unsubscribed, true);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(subscriptions.length, weatherSubs + 1);
+  subscriptions.at(-1).options.onData({
     instances: [{properties: {temperature: {numericValue: {value: 10, unit: '\u00b0C'}}}}]
   });
   weather = sent.at(-1);
   assert.ok(weather.WX_EXPIRES >= Math.floor(Date.now() / 1000) + 10799);
+  subscriptions.at(-1).options.onError(undefined);
+  assert.equal(sent.at(-1).WX_CLEAR, 1);
 
   await page({CFG_USE_WEATHER: false});
   permission = 'denied';
   shown = await open();
   assert.match(JSON.stringify(shown.config), /permission is off/);
-  count = sent.length;
+  assert.match(JSON.stringify(shown.config), /standard 10\u00b0C/);
+  weatherSubs = subscriptions.length;
   await page({CFG_USE_WEATHER: true});
-  assert.equal(sent.length, count);
+  assert.equal(sent.at(-2).CFG_USE_WEATHER, 1);
+  assert.equal(sent.at(-1).WX_CLEAR, 1);
+  assert.equal(subscriptions.length, weatherSubs);
+  listeners.appmessage({payload: {REQ_LOCATION: 1}});
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(subscriptions.length, weatherSubs);
+  assert.equal(JSON.parse(storage['pebble-pushto-tool.settings.v1']).useWeather, 1);
+  listeners.ready({});
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(sent.at(-1).WX_CLEAR, 1);
+  assert.equal(subscriptions.length, weatherSubs);
+  permission = 'granted';
+  await page({CFG_USE_WEATHER: false});
   delete context.Pebble.permissions;
   await page({CFG_USE_WEATHER: true});
   assert.equal(sent.at(-1).CFG_USE_WEATHER, 1);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(subscriptions.length, weatherSubs + 1);
 
   await page({MANUAL: true, LATITUDE: '10.5', LONGITUDE: '-20.25', ELEVATION: '100'});
   fix = sent.at(-1);
