@@ -337,147 +337,106 @@ jobs:
           path: store-screenshots/logs/
           if-no-files-found: warn
 
-  # Test App Store OIDC access, but leave publication to the developer.
-  appstore-preflight:
-    needs: [build, release, store-screenshots]
+  publish:
+    needs: [build, release, comprehensive-gate, store-screenshots]
     runs-on: ubuntu-24.04
+    environment: Pebble Appstore
     permissions:
       contents: read
       id-token: write
+    outputs:
+      outcome: ${{ steps.publish.outcome }}
+      stage: ${{ steps.publish.outputs.stage }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Check appstore version
-        if: false
-        id: check
-        env:
-          VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          set -euo pipefail
-          UUID=$(jq -er '.pebble.uuid | select(type == "string" and length > 0) | ascii_downcase' package.json)
-          TOKEN=$(curl --fail-with-body -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$APPSTORE_API_BASE" | jq -er '.value | select(type == "string" and length > 0)')
-          echo "::add-mask::$TOKEN"
-          APP=$(curl -fsS -H "Authorization: Bearer $TOKEN" \
-            "$APPSTORE_API_BASE/api/v1/developer/me" | \
-            jq -ce --arg uuid "$UUID" '
-              [.apps[] | select((.app_uuid // "" | ascii_downcase) == $uuid)] |
-              if length == 1 then .[0] else error("Expected one appstore listing for the app UUID") end |
-              if (.app_id | type == "string" and length > 0) and
-                 (.versions | type == "array" and all(.[]; type == "string"))
-              then . else error("Appstore response is missing an app ID or versions") end')
-          echo "app_id=$(jq -r '.app_id' <<<"$APP")" >> "$GITHUB_OUTPUT"
-          if jq -e --arg version "$VERSION" '.versions | index($version) != null' <<<"$APP" >/dev/null; then
-            echo "Version $VERSION already exists in the appstore; skipping publication."
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "Version $VERSION is new; requesting publication."
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Check App Store authentication
-        run: |
-          APP_UUID="$(jq -er '.pebble.uuid | select(type == "string" and length > 0)' package.json)" \
-            python3 tools/appstore_preflight.py
-      - name: Upload App Store preflight report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: appstore-preflight
-          path: appstore-preflight.json
-          if-no-files-found: warn
-
-  # Automatic App Store publishing is disabled; publish manually from the tested release.
-  publish:
-    if: false
-    needs: [build, release, appstore-preflight]
-    runs-on: ubuntu-24.04
-    environment: Pebble Appstore
-    permissions:
-      id-token: write
-    steps:
       - uses: actions/download-artifact@v4
         with:
           name: pbw-release
           path: dist
-      - name: Publish release to the Pebble appstore
+      - name: Publish to Pebble App Store
+        id: publish
+        continue-on-error: true
         env:
           APP_ID: ${{ vars.APPSTORE_APP_ID }}
-          PLANNED_APP_ID: ${{ needs.plan.outputs.app_id }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
-          test -n "$APP_ID" || { echo "Set the APPSTORE_APP_ID environment variable" >&2; exit 1; }
-          test "$APP_ID" = "$PLANNED_APP_ID" || { echo "APPSTORE_APP_ID does not match the app UUID" >&2; exit 1; }
-          TOKEN=$(curl --fail-with-body -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          echo "stage=configuration" >> "$GITHUB_OUTPUT"
+          test -n "$APP_ID" || { echo "APPSTORE_APP_ID is not configured" >&2; exit 1; }
+          UUID=$(jq -er '.pebble.uuid | select(type == "string" and length > 0) | ascii_downcase' package.json)
+          echo "stage=authentication" >> "$GITHUB_OUTPUT"
+          TOKEN=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$APPSTORE_API_BASE" | jq -er '.value | select(type == "string" and length > 0)')
           echo "::add-mask::$TOKEN"
-          curl --fail-with-body -sS -H "Authorization: Bearer $TOKEN" \
+          echo "stage=listing" >> "$GITHUB_OUTPUT"
+          APP=$(curl -fsS -H "Authorization: Bearer ""$TOKEN" "$APPSTORE_API_BASE/api/v1/developer/me" | \
+            jq -ce --arg uuid "$UUID" '
+              [.apps[] | select((.app_uuid // "" | ascii_downcase) == $uuid)] |
+              if length == 1 then .[0] else error("Expected one App Store listing for the app UUID") end |
+              if (.app_id | type == "string" and length > 0) and
+                 (.versions | type == "array" and all(.[]; type == "string"))
+              then . else error("App Store response is missing an app ID or versions") end')
+          test "$(jq -r '.app_id' <<<"$APP")" = "$APP_ID" || { echo "APPSTORE_APP_ID does not match the app UUID" >&2; exit 1; }
+          if jq -e --arg version "$VERSION" '.versions | index($version) != null' <<<"$APP" >/dev/null; then
+            echo "Version $VERSION already exists in the App Store."
+            exit 0
+          fi
+          echo "stage=upload" >> "$GITHUB_OUTPUT"
+          curl -fsS -H "Authorization: Bearer ""$TOKEN" \
             --form-string "version=$VERSION" \
             -F "pbwFile=@dist/astroslop-$VERSION.pbw" \
             --form-string isPublished=true \
             "$APPSTORE_API_BASE/api/dashboard/apps/$APP_ID/releases"
+      - name: Warn about manual publishing
+        if: steps.publish.outcome == 'failure'
+        run: echo "::warning::Pebble App Store publication failed; a manual publishing issue will be created."
 
-  release-assets:
-    if: always() && !cancelled() && github.event_name == 'push' && github.ref_type == 'tag' && needs.build.result == 'success' && needs.release.result == 'success'
-    needs: [build, release, comprehensive, comprehensive-gate, store-screenshots, appstore-preflight]
+  manual-publishing-issue:
+    if: always() && !cancelled() && needs.build.result == 'success' && needs.comprehensive-gate.result == 'success' && needs.store-screenshots.result == 'success' && needs.publish.outputs.outcome == 'failure'
+    needs: [build, comprehensive-gate, store-screenshots, publish]
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      actions: read
+      issues: write
     steps:
-      - name: Download comprehensive reports
-        if: needs.comprehensive.result != 'skipped'
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          pattern: comprehensive-release-*
-          path: release-assets/reports
-      - name: Download comprehensive gate report
-        if: needs.comprehensive-gate.result != 'skipped'
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: comprehensive-report
-          path: release-assets/reports
-      - name: Download App Store preflight report
-        if: needs.appstore-preflight.result != 'skipped'
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: appstore-preflight
-          path: release-assets/reports
-      - name: Download store screenshots
-        if: needs.store-screenshots.result == 'success'
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          pattern: store-screenshots-*
-          path: release-assets/screenshots
-      - name: Package release reports and screenshots
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import shutil
-          import zipfile
-
-          root = Path("release-assets")
-          upload = root / "upload"
-          upload.mkdir(parents=True, exist_ok=True)
-          for artifact in (root / "screenshots").glob("store-screenshots-*"):
-              platform = artifact.name.removeprefix("store-screenshots-")
-              for image in artifact.glob("*.png"):
-                  shutil.copy2(image, upload / f"{platform}-{image.name}")
-
-          archive = root / "release-test-assets.zip"
-          with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
-              for path in sorted(root.glob("**/*")):
-                  if path.is_file() and path != archive and path.parent != upload:
-                      bundle.write(path, path.relative_to(root))
-          PY
-      - name: Attach reports and screenshots to GitHub Release
+      - name: Create or update manual publishing issue
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+          FAILURE_STAGE: ${{ needs.publish.outputs.stage }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          shopt -s nullglob
-          assets=(release-assets/release-test-assets.zip release-assets/upload/*.png)
-          gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.+-][A-Za-z0-9.+-]+)?$ ]] || { echo "Invalid version" >&2; exit 1; }
+          title="Publish PushTo Tool v$VERSION"
+          gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.expired == false) | select(.name == "pbw-release" or .name == "comprehensive-report" or (.name | startswith("comprehensive-release-")) or (.name | startswith("store-screenshots-"))) | [.name, (.id | tostring)] | @tsv' > artifacts.tsv
+          {
+            printf 'Automatic Pebble App Store publication failed during **%s**. [View the workflow run](%s).\n\n' "$FAILURE_STAGE" "$RUN_URL"
+            printf '### Manual publishing\n\n'
+            printf '%s\n' '- [ ] Review the comprehensive test reports and screenshots.' \
+              '- [ ] Download the release PBW and publish it in the Pebble Developer Dashboard.' \
+              '- [ ] Upload the desired screenshots and verify the store listing.' \
+              '- [ ] Close this issue once publication is complete.'
+            printf '\n### Workflow artifacts\n\n'
+            while IFS=$'\t' read -r name id; do
+              printf -- '- [%s](%s/artifacts/%s)\n' "$name" "$RUN_URL" "$id"
+            done < artifacts.tsv
+            printf '\nArtifact links expire according to GitHub Actions retention settings.\n'
+          } > issue.md
+          existing=$(gh issue list --state all --search "\"$title\" in:title" --limit 1000 --json number,title,state \
+            | jq -c --arg title "$title" '[.[] | select(.title == $title)] | first // empty')
+          if [ -n "$existing" ]; then
+            number=$(jq -r '.number' <<<"$existing")
+            gh issue comment "$number" --body-file issue.md
+            gh issue edit "$number" --add-assignee ewsandor
+            if [ "$(jq -r '.state' <<<"$existing")" = "CLOSED" ]; then
+              gh issue reopen "$number"
+            fi
+          else
+            gh issue create --title "$title" --body-file issue.md --assignee ewsandor
+          fi

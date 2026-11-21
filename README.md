@@ -161,13 +161,18 @@ waiting for tests. The release is therefore available before it has passed the
 release gate. The comprehensive suite then tests that exact PBW on every
 supported platform. Only after the host and comprehensive checks pass does
 `store-screenshots` capture native-resolution PNGs from the same release PBW
-on every platform. The screenshots are also attached, along with comprehensive
-test reports, to the GitHub Release as individual PNGs and a
-`release-test-assets.zip` bundle. The workflow never publishes to the Pebble
-App Store automatically. Its App Store authentication preflight records an HTTP
-401 as a warning and includes the result in the release bundle; publish the PBW
-manually from the Developer Dashboard after reviewing the reports and images.
-These jobs run only for version-tag pushes. GitHub artifact retention applies.
+on every platform. The workflow then attempts to publish the tested PBW to the
+Pebble App Store, unless that version already exists. Configure the GitHub
+`Pebble Appstore` environment to allow version tags, set its `APPSTORE_APP_ID`
+variable to the existing listing ID, and authorize the repository and workflow
+for App Store GitHub Actions publishing. Environment approval rules apply.
+
+If authentication or upload fails, the workflow reports a warning and creates
+or updates one issue per version, assigned to @ewsandor for manual publication.
+The issue links to the workflow run, release PBW, comprehensive reports and
+screenshots. These are Actions artifacts, not attachments to the issue or release,
+and expire under GitHub's artifact retention policy. No issue is created when
+build, test, or screenshot gates fail or when publishing is skipped or succeeds.
 
 Set the listing's **App Name** to **PushTo Tool** in the
 [Pebble Developer Dashboard](https://developer.repebble.com/dashboard).
@@ -176,10 +181,9 @@ Store installs use the listing name in the watch launcher; sideloads use
 
 ### Release screenshots
 
-After a successful tag run, open the GitHub Release to download individual
-screenshots or the `release-test-assets.zip` bundle. The original
-`store-screenshots-<platform>` ZIP artifacts remain available from the Actions
-run as well.
+After a successful tag run, open it under **Actions**, scroll to **Artifacts**,
+and download the `store-screenshots-<platform>` ZIPs. Screenshots are not
+uploaded to the App Store automatically.
 
 The captures use 2026-01-01 12:00 AM UTC, 51.4779° N / 0° E, 45 m and
 51°F weather. Each model gets Jupiter on the main screen, Sirius on the banner,
