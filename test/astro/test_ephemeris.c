@@ -45,18 +45,23 @@ static bool body_position(void *context, double jd_utc, AstroEquatorial *positio
 }
 
 int main(int argc, char **argv) {
-  assert(argc == 2);
+  assert(argc == 3);
   FILE *file = fopen(argv[1], "rb");
   assert(file);
   AstroEphemeris ephemeris;
   assert(astro_ephemeris_init(&ephemeris, read_file, file));
 
   // Meeus example 47.a, 1992 April 12 (JDE).
+  FILE *full_file = fopen(argv[2], "rb");
+  assert(full_file);
+  AstroEphemeris full_ephemeris;
+  assert(astro_ephemeris_init(&full_ephemeris, read_file, full_file));
   double lon, lat, distance;
-  assert(astro_moon_ecliptic(&ephemeris, 2448724.5, &lon, &lat, &distance));
+  assert(astro_moon_ecliptic(&full_ephemeris, 2448724.5, &lon, &lat, &distance));
   near("Moon longitude", lon / ASTRO_DEG, 133.162655, 0.000002);
   near("Moon latitude", lat / ASTRO_DEG, -3.229126, 0.000002);
   near("Moon distance", distance, 368409.7, 0.1);
+  fclose(full_file);
 
   // NASA/JPL Horizons, Earth geocenter, 2026-01-01 00:00 UTC, apparent RA/Dec.
   static const struct {
