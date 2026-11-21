@@ -24,6 +24,7 @@ HOST = ROOT / "build/host-tests"
 KINDS = {"sun": 0, "moon": 1, "planet": 2, "pluto": 3, "minor": 4}
 SIZES = {"basalt": (144, 168), "chalk": (180, 180), "diorite": (144, 168),
          "emery": (200, 228), "flint": (144, 168), "gabbro": (260, 260)}
+LOW_MEMORY_PLATFORMS = {"basalt", "chalk", "diorite", "flint"}
 FATAL = re.compile(r"(?:ASTRO_ERROR|\bERROR\b|\bE\s+\d\d:\d\d:\d\d|"
                    r"app fault|app crash|assert(?:ion)? failed|panic|"
                    r"connection (?:refused|closed)|Traceback)", re.IGNORECASE)
@@ -823,6 +824,11 @@ def run_suite(args, project, platforms, output):
                     print(f"{mode}/{platform}: live-clock-change", flush=True)
                     report["cases"].append(emulator.check_clock_change(cases, objects))
                 for case in pointing:
+                    if case.precise and platform in LOW_MEMORY_PLATFORMS:
+                        reason = "0.01-degree display is unavailable on 64 KB platforms"
+                        report["skipped"].append({"case": case.name, "reason": reason})
+                        print(f"{mode}/{platform}: SKIPPED {case.name} ({reason})", flush=True)
+                        continue
                     report["active_case"] = case.name
                     print(f"{mode}/{platform}: {case.name}", flush=True)
                     report["cases"].append(emulator.check(case, objects, live_clock=not quarantine))
