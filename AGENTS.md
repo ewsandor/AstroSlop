@@ -55,6 +55,38 @@ Only keep a connection open (`pebble logs`, `--logs`) while you actually need it
 
 Repeat with `--emulator <platform>` for each platform in `targetPlatforms` in package.json. Round displays (chalk, gabbro) and the smaller aplite/diorite screens need their own check.
 
+### Automated tests and focused checks
+
+- The commands, prerequisites, coverage, quarantine and report format are in
+  the README's "Emulator acceptance suites" section.
+- Host checks: `make -C test/astro`, `python3 -m unittest discover -s test/tools -v`,
+  `node test/pkjs/companion.test.js`, and (after `make -C test/astro references`)
+  `python3 -m unittest discover -s test/emulator -v`.
+- Run the complete PR gate locally with `python3 test/emulator/run.py --tier sanity`
+  (release and debug, all target platforms). Run the release tier with
+  `python3 test/emulator/run.py --tier comprehensive` (release, all platforms).
+  Comprehensive also accepts `--mode debug` for triage.
+- For fast spot checks, list cases with `python3 test/emulator/run.py --tier comprehensive --list-cases`,
+  then select a platform, mode and relevant cases, for example
+  `python3 test/emulator/run.py --tier sanity --mode debug --platform emery --case ui-banner`
+  or use `--group navigation`. Repeat `--case` or `--group` to select a union;
+  quote glob patterns such as `--case 'horizons-00?'`. Use `--pbw path/to/app.pbw`
+  with one mode to reuse a build. Focused runs do not replace the full gates.
+- Reports persist on success and failure; only failures retain logs/screenshots.
+  The existing clock-change quarantine is reported as skipped, not passed.
+  GitHub Actions runs each platform/mode on a separate runner in parallel.
+- Release store screenshots use `test/emulator/store_screenshots.py`; fixture
+  details and the local command are in the README. They run after the GitHub
+  Release and gate publishing, using the release PBW.
+- On Linux, run `python3 test/emulator/parallel.py --tier sanity --jobs 2`
+  for isolated local workers, or pass `--mode`, `--platform`, `--case`, `--group`
+  and single-mode `--pbw` for focused checks. It requires `unshare`, `bwrap`,
+  `ip` and unprivileged user/network namespaces. Reports are in a new directory
+  under `build/emulator-parallel`; workers use private flash and VNC state.
+  Limit jobs to available resources. The ordinary serial runner uses shared
+  managed VNC; do not run it concurrently with another user's emulator or
+  interactive work.
+
 ### Headless Environments
 
 If you're running in an environment without a window server (e.g., headless Linux, Docker, CI), you must add `--vnc` to **all commands that interact with the emulator**. This includes app installs, screenshots, button presses, and any `emu-*` commands:
@@ -155,3 +187,29 @@ pebble emu-button click up --repeat 3 --interval 100
 ## AI Code Review Guidelines
 
 - Once you think you've fulfilled the user's request, ask yourself if you see any issues with the current screenshot, and if there are any differences between the screenshot and the reference image or the user's description. If so, fix them.
+
+## Efficient Emulator Testing
+
+- Reuse the preinstalled Pebble CLI and SDK from the Copilot setup environment. Check `command -v pebble` and `pebble sdk list` before installing anything; avoid `sudo` or reinstalling dependencies unless a required tool or library is actually missing.
+- Build once for the requested mode, then reuse the running emulator for installs, screenshots, and button input. Builds for different modes overwrite the PBW in `build/`; copy each PBW to a separate temporary path before building the next mode if both must be tested.
+- In headless environments, pass `--vnc` to every emulator command. Specify the same `--emulator <platform>` on install, screenshot, logs, and button commands so they connect to the intended emulator.
+- Test every platform in `package.json`'s `targetPlatforms`, reusing the existing SDK and build outputs; prioritize visual inspection of round and small-screen captures.
+- Capture one screenshot for each materially different UI state and inspect it. Keep logs off unless needed; when checking startup or `APP_LOG`, collect only the relevant output and stop the log stream as soon as it is captured.
+- If QEMU starts but Pebble commands report `Connection refused`, check the companion logs for `OSError: [Errno 97] Address family not supported by protocol`. In IPv4-only containers, gevent may choose IPv6 for pypkjs's wildcard listener; use this temporary, untracked `sitecustomize.py` on `PYTHONPATH` for emulator commands:
+
+  ```python
+  import socket
+  import gevent.baseserver
+
+  original = gevent.baseserver._parse_address
+
+  def parse_address(address):
+      family, parsed = original(address)
+      if family == socket.AF_INET6 and not parsed[0]:
+          return socket.AF_INET, ("0.0.0.0", parsed[1])
+      return family, parsed
+
+  gevent.baseserver._parse_address = parse_address
+  ```
+
+  Remove the temporary shim after testing; do not modify product code or install additional packages for this environment-only issue.

@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static bool read_file(void *context, uint32_t offset, void *destination, size_t length) {
   FILE *file = context;
@@ -95,6 +96,15 @@ static const Reference REFERENCES[] = {
 
 int main(int argc, char **argv) {
   assert(argc == 2);
+  if (strcmp(argv[1], "--references") == 0) {
+    for (size_t i = 0; i < sizeof(REFERENCES) / sizeof(REFERENCES[0]); ++i) {
+      const Reference *r = &REFERENCES[i];
+      printf("%d,%u,%.8f,%.8f,%.8f,%.0f,%.8f,%.8f,%d\n",
+             r->kind, r->index, r->jd, r->latitude, r->longitude,
+             r->elevation, r->azimuth, r->altitude, r->refraction);
+    }
+    return 0;
+  }
   FILE *file = fopen(argv[1], "rb");
   assert(file);
   AstroEphemeris ephemeris;
