@@ -48,11 +48,30 @@ class EphemerisBuilderTests(unittest.TestCase):
             rows = build_ephemeris.read_meeus(path, build_ephemeris.MOON_LATITUDE, 4, 1)
             self.assertEqual(build_ephemeris.MOON_LATITUDE.unpack(rows[0]),
                              (0, 0, 0, 1, 5128122))
+            limited = build_ephemeris.read_meeus(
+                path, build_ephemeris.MOON_LATITUDE, 4, 1, max_terms=1)
+            self.assertEqual(limited, rows)
+            with self.assertRaisesRegex(ValueError, "term limit"):
+                build_ephemeris.read_meeus(
+                    path, build_ephemeris.MOON_LATITUDE, 4, 1, max_terms=2)
+            with self.assertRaisesRegex(ValueError, "term limit"):
+                build_ephemeris.read_meeus(
+                    path, build_ephemeris.MOON_LATITUDE, 4, 1, max_terms=0)
             with self.assertRaisesRegex(ValueError, "expected 2 terms"):
                 build_ephemeris.read_meeus(path, build_ephemeris.MOON_LATITUDE, 4, 2)
             path.write_text("d,m,mp,f,latitude_1e6_deg\n0,0,0,300,1\n", encoding="ascii")
             with self.assertRaisesRegex(ValueError, "out of range"):
                 build_ephemeris.read_meeus(path, build_ephemeris.MOON_LATITUDE, 4, 1)
+
+    def test_moon_tables_keep_the_display_safe_prefix(self):
+        for name, record, columns, expected in build_ephemeris.MEEUS_TABLES[:2]:
+            path = build_ephemeris.DATA / "meeus" / name
+            full = build_ephemeris.read_meeus(path, record, columns, expected)
+            truncated = build_ephemeris.read_meeus(
+                path, record, columns, expected, build_ephemeris.MOON_TERM_COUNT)
+            self.assertEqual(len(full), expected)
+            self.assertEqual(len(truncated), build_ephemeris.MOON_TERM_COUNT)
+            self.assertEqual(truncated, full[:build_ephemeris.MOON_TERM_COUNT])
 
 
 if __name__ == "__main__":

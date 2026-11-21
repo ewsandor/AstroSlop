@@ -6,6 +6,7 @@ ROOT := ../..
 SOURCE := $(ROOT)/src/c/astro
 OUT := $(ROOT)/build/host-tests
 EPHEMERIS := $(ROOT)/resources/generated/ephemeris.bin
+FULL_EPHEMERIS := $(OUT)/ephemeris-full-moon.bin
 EPHEMERIS_INPUTS := $(ROOT)/ephemeris/minor_planets.csv \
                     $(wildcard $(ROOT)/ephemeris/meeus/*.csv) \
                     $(wildcard $(ROOT)/ephemeris/vsop87d/VSOP87D.*.gz)
@@ -17,11 +18,13 @@ references: $(OUT)/test_core $(OUT)/test_horizons $(OUT)/pointing_reference $(EP
 
 test: $(OUT)/test_core $(OUT)/test_ephemeris $(OUT)/test_horizons \
       $(OUT)/test_accuracy_full $(OUT)/test_accuracy_low \
-      $(OUT)/test_log_release $(OUT)/test_log_debug $(EPHEMERIS)
+      $(OUT)/test_moon_truncation $(OUT)/test_log_release $(OUT)/test_log_debug \
+      $(EPHEMERIS) $(FULL_EPHEMERIS)
 	$(OUT)/test_core
-	$(OUT)/test_ephemeris $(EPHEMERIS)
+	$(OUT)/test_ephemeris $(EPHEMERIS) $(FULL_EPHEMERIS)
 	$(OUT)/test_horizons $(EPHEMERIS)
 	python3 test_accuracy.py $(OUT)/test_accuracy_full $(OUT)/test_accuracy_low $(EPHEMERIS)
+	$(OUT)/test_moon_truncation $(EPHEMERIS) $(FULL_EPHEMERIS)
 	$(OUT)/test_log_release
 	$(OUT)/test_log_debug
 
@@ -43,6 +46,9 @@ $(OUT)/test_accuracy_full: test_accuracy.c $(SOURCE)/astro.c $(SOURCE)/events.c 
 $(OUT)/test_accuracy_low: test_accuracy.c $(SOURCE)/astro.c $(SOURCE)/events.c $(SOURCE)/ephemeris.c $(SOURCE)/astro.h $(SOURCE)/events.h $(SOURCE)/ephemeris.h | $(OUT)
 	$(CC) $(CFLAGS) -DASTRO_LOW_MEMORY $(filter %.c,$^) $(LDLIBS) -o $@
 
+$(OUT)/test_moon_truncation: test_moon_truncation.c $(SOURCE)/astro.c $(SOURCE)/events.c $(SOURCE)/ephemeris.c $(SOURCE)/astro.h $(SOURCE)/events.h $(SOURCE)/ephemeris.h | $(OUT)
+	$(CC) $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
+
 $(OUT)/pointing_reference: pointing_reference.c $(SOURCE)/astro.c $(SOURCE)/ephemeris.c $(SOURCE)/astro.h $(SOURCE)/ephemeris.h | $(OUT)
 	$(CC) $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
 
@@ -54,3 +60,6 @@ $(OUT)/test_log_debug: test_log.c $(ROOT)/src/c/logging.h | $(OUT)
 
 $(EPHEMERIS): $(ROOT)/tools/build_ephemeris.py $(EPHEMERIS_INPUTS)
 	python3 $< --output $@
+
+$(FULL_EPHEMERIS): $(ROOT)/tools/build_ephemeris.py $(EPHEMERIS_INPUTS) | $(OUT)
+	python3 $< --output $@ --full-moon-series
