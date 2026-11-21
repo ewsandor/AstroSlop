@@ -22,15 +22,15 @@ def job(name):
 
 class ReleaseWorkflowTests(unittest.TestCase):
     def test_appstore_oidc_and_identity_are_configured_consistently(self):
-        plan = job("plan")
+        plan = job("appstore-preflight")
         publish = job("publish")
-        for text in (plan, publish):
-            self.assertIn("id-token: write", text)
-            self.assertIn("Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN", text)
-            self.assertIn("audience=$APPSTORE_API_BASE", text)
+        self.assertIn("id-token: write", plan)
+        self.assertIn("tools/appstore_preflight.py", plan)
         self.assertIn("APPSTORE_API_BASE: https://appstore-api.repebble.com", WORKFLOW)
-        self.assertIn("$APPSTORE_API_BASE/api/v1/developer/me", plan)
-        self.assertIn("$APPSTORE_API_BASE/api/dashboard/apps/$APP_ID/releases", publish)
+        self.assertIn("needs: [build, release, store-screenshots]", plan)
+        self.assertIn("name: appstore-preflight", plan)
+        self.assertIn("if: false", publish)
+        self.assertNotIn("isPublished=true", job("release-assets"))
 
     def test_store_listing_identity_matches_package(self):
         package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
@@ -48,10 +48,18 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("needs: [build, test, release]", job("comprehensive"))
         self.assertIn("needs: [build, test, release, comprehensive]", job("comprehensive-gate"))
         self.assertIn("needs: [build, release, comprehensive-gate]", job("store-screenshots"))
-        self.assertIn("needs: [build, release, store-screenshots]", job("plan"))
-        self.assertIn("needs: [build, release, plan]", job("publish"))
-        for name in ("comprehensive", "store-screenshots", "plan", "publish"):
+        self.assertIn("needs: [build, release, store-screenshots]", job("appstore-preflight"))
+        for name in ("comprehensive", "store-screenshots", "appstore-preflight"):
             self.assertNotRegex(job(name), r"(?m)^    if: .*always\(\)")
+
+    def test_release_assets_attach_reports_and_screenshots(self):
+        release_assets = job("release-assets")
+        self.assertIn("contents: write", release_assets)
+        self.assertIn("pattern: comprehensive-release-*", release_assets)
+        self.assertIn("name: comprehensive-report", release_assets)
+        self.assertIn("pattern: store-screenshots-*", release_assets)
+        self.assertIn("gh release upload", release_assets)
+        self.assertIn("release-test-assets.zip", release_assets)
 
     def test_comprehensive_reports_are_uploaded_after_pass_or_failure(self):
         matrix = job("comprehensive")

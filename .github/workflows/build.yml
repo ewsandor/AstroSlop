@@ -292,7 +292,7 @@ jobs:
           Path("comprehensive-report.json").write_text(json.dumps({
               "tier": "comprehensive", "success": passed, "checks": checks}, indent=2) + "\n")
           if not passed:
-              raise SystemExit("Store assets and publication require a successful release, host tests, and every emulator")
+              raise SystemExit("Store assets require a successful release, host tests, and every emulator")
           PY
       - name: Upload final comprehensive gate report
         if: always()
@@ -337,21 +337,19 @@ jobs:
           path: store-screenshots/logs/
           if-no-files-found: warn
 
-  # Like Core Devices' publishing workflow, check the store before requesting a deployment.
-  plan:
+  # Test App Store OIDC access, but leave publication to the developer.
+  appstore-preflight:
     needs: [build, release, store-screenshots]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write
-    outputs:
-      app_id: ${{ steps.check.outputs.app_id }}
-      publish: ${{ steps.check.outputs.publish }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Check appstore version
+        if: false
         id: check
         env:
           VERSION: ${{ needs.build.outputs.version }}
@@ -377,11 +375,22 @@ jobs:
             echo "Version $VERSION is new; requesting publication."
             echo "publish=true" >> "$GITHUB_OUTPUT"
           fi
+      - name: Check App Store authentication
+        run: |
+          APP_UUID="$(jq -er '.pebble.uuid | select(type == "string" and length > 0)' package.json)" \
+            python3 tools/appstore_preflight.py
+      - name: Upload App Store preflight report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appstore-preflight
+          path: appstore-preflight.json
+          if-no-files-found: warn
 
-  # Configure the `Pebble Appstore` environment for version tags and require approval.
+  # Automatic App Store publishing is disabled; publish manually from the tested release.
   publish:
-    if: needs.plan.outputs.publish == 'true'
-    needs: [build, release, plan]
+    if: false
+    needs: [build, release, appstore-preflight]
     runs-on: ubuntu-24.04
     environment: Pebble Appstore
     permissions:
@@ -408,3 +417,67 @@ jobs:
             -F "pbwFile=@dist/astroslop-$VERSION.pbw" \
             --form-string isPublished=true \
             "$APPSTORE_API_BASE/api/dashboard/apps/$APP_ID/releases"
+
+  release-assets:
+    if: always() && !cancelled() && github.event_name == 'push' && github.ref_type == 'tag' && needs.build.result == 'success' && needs.release.result == 'success'
+    needs: [build, release, comprehensive, comprehensive-gate, store-screenshots, appstore-preflight]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download comprehensive reports
+        if: needs.comprehensive.result != 'skipped'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: comprehensive-release-*
+          path: release-assets/reports
+      - name: Download comprehensive gate report
+        if: needs.comprehensive-gate.result != 'skipped'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: comprehensive-report
+          path: release-assets/reports
+      - name: Download App Store preflight report
+        if: needs.appstore-preflight.result != 'skipped'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: appstore-preflight
+          path: release-assets/reports
+      - name: Download store screenshots
+        if: needs.store-screenshots.result == 'success'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: store-screenshots-*
+          path: release-assets/screenshots
+      - name: Package release reports and screenshots
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          import zipfile
+
+          root = Path("release-assets")
+          upload = root / "upload"
+          upload.mkdir(parents=True, exist_ok=True)
+          for artifact in (root / "screenshots").glob("store-screenshots-*"):
+              platform = artifact.name.removeprefix("store-screenshots-")
+              for image in artifact.glob("*.png"):
+                  shutil.copy2(image, upload / f"{platform}-{image.name}")
+
+          archive = root / "release-test-assets.zip"
+          with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
+              for path in sorted(root.glob("**/*")):
+                  if path.is_file() and path != archive and path.parent != upload:
+                      bundle.write(path, path.relative_to(root))
+          PY
+      - name: Attach reports and screenshots to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          assets=(release-assets/release-test-assets.zip release-assets/upload/*.png)
+          gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
