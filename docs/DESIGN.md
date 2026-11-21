@@ -151,7 +151,7 @@ design intent is retained where it differs.
 | ID | Requirement | How it is addressed |
 |---|---|---|
 | NFR-1 | Stable | Host unit tests for the astronomy core; bounded resource reads; no dynamic allocation in hot paths; versioned persisted structs |
-| NFR-2 | Maintainable, extendable and modular | Separate UI, services, catalog, ephemeris and portable astronomy modules; orchestration remains in `src/c/astroslop.c` |
+| NFR-2 | Maintainable, extendable and modular | Separate UI, services, catalog, ephemeris and portable astronomy modules; orchestration remains in `src/c/pebble_pushto_tool.c` |
 | NFR-3 | Human-readable code | Descriptive names and SDK `prv_`/`s_` conventions; not all proposed Doxygen headers were added |
 | NFR-4 | Well documented | This document, header documentation, README and CREDITS |
 | NFR-5 | Minimal | No background worker, timeline or AppGlance; Clay is used for the configuration UI |
@@ -332,7 +332,7 @@ flowchart LR
         WEATHER --> PKJS
     end
     subgraph Watch["Pebble watch - C app"]
-        APP["src/c/astroslop.c<br/>application coordinator"]
+        APP["src/c/pebble_pushto_tool.c<br/>application coordinator"]
         UI["UI: main_window.c"]
         SERVICES["Services: settings, location, l10n"]
         CATALOG["catalog.c<br/>on-demand resource reads"]
@@ -358,12 +358,13 @@ flowchart LR
 
 The implementation has distinct UI, service, catalog and astronomy modules, but the original
 separate application-controller, layout, banner-layer, resource-reader and provider modules were
-not created. `src/c/astroslop.c` coordinates app state, navigation, timers, calculations and service
-callbacks. The astronomy files are portable C and do not include `pebble.h`.
+not created. `src/c/pebble_pushto_tool.c` coordinates app state, navigation, timers,
+calculations and service callbacks. The astronomy files are portable C and do not
+include `pebble.h`.
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│ APPLICATION COORDINATION   src/c/astroslop.c                       │
+│ APPLICATION COORDINATION   src/c/pebble_pushto_tool.c              │
 │ state · navigation · tick/event/location callbacks · timers         │
 ├───────────────────────────────────────────────────────────────────┤
 │ UI                         src/c/ui/main_window.c                   │
@@ -388,7 +389,7 @@ The watch coordinator depends directly on the modules it orchestrates:
 
 | From | Uses |
 |---|---|
-| `src/c/astroslop.c` | `main_window`, settings, location, catalog API, astronomy API, Pebble timer/messaging/backlight APIs |
+| `src/c/pebble_pushto_tool.c` | `main_window`, settings, location, catalog API, astronomy API, Pebble timer/messaging/backlight APIs |
 | `ui/main_window.c` | screen-state struct, localization strings, Pebble graphics/layer/window APIs |
 | `catalog/catalog.c` | catalog pack resource reader and astronomy ephemeris functions |
 | `astro/ephemeris.c` | bounded callback-based reads from the ephemeris resource |
@@ -397,7 +398,7 @@ The watch coordinator depends directly on the modules it orchestrates:
 
 | Module | Responsibility | Key API (sketch) |
 |---|---|---|
-| `src/c/astroslop.c` | `main()` and app coordinator: loads settings/resources, retains selection and calculation state, handles button/tick/AppMessage/connection events, filters, banners, flashlight and rise/set scheduling | `main()`, internal init/deinit and event handlers |
+| `src/c/pebble_pushto_tool.c` | `main()` and app coordinator: loads settings/resources, retains selection and calculation state, handles button/tick/AppMessage/connection events, filters, banners, flashlight and rise/set scheduling | `main()`, internal init/deinit and event handlers |
 | `src/c/ui/main_window.c` | Draws the main screen and temporary banners in a custom canvas, and loads icons | `ui_init()`, `ui_update()` |
 | `src/c/services/settings.c` | Settings defaults, validation, persistence and updates from AppMessage | `settings_load()`, `settings_apply()` |
 | `src/c/services/location.c` | Persisted fix, request lifecycle, timeout/retry/hourly timers, connection handling and warning state | `location_init()`, `location_request()`, `location_observer()` |
@@ -410,7 +411,7 @@ The watch coordinator depends directly on the modules it orchestrates:
 ### 5.4 Source tree (implemented)
 
 ```
-astroslop/
+Pebble-PushTo-Tool/
 ├── docs/DESIGN.md
 ├── README.md, CREDITS.md, LICENSE, LICENSES/
 ├── package.json, package-lock.json, wscript
@@ -423,7 +424,7 @@ astroslop/
 ├── resources/generated/               ← generated packs and catalog credit files
 ├── resources/icons/                   ← platform-size status/flashlight icons
 ├── src/c/
-│   ├── astroslop.c                     ← main entry point and application coordinator
+│   ├── pebble_pushto_tool.c            ← main entry point and application coordinator
 │   ├── ui/main_window.[ch]
 │   ├── services/{location,settings,l10n}.[ch]
 │   ├── catalog/catalog.[ch]
@@ -459,7 +460,7 @@ astroslop/
 sequenceDiagram
     autonumber
     participant OS as PebbleOS
-    participant M as src/c/astroslop.c
+    participant M as src/c/pebble_pushto_tool.c
     participant S as settings
     participant BL as backlight
     participant L as location
@@ -496,7 +497,7 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant T as Pebble minute tick / refresh app_timer
-    participant C as src/c/astroslop.c
+    participant C as src/c/pebble_pushto_tool.c
     participant E as position cache and catalog API
     participant A as src/c/astro
     participant UI as main_window
@@ -541,7 +542,7 @@ Refresh interval (issue #16):
 sequenceDiagram
     autonumber
     participant User
-    participant App as src/c/astroslop.c
+    participant App as src/c/pebble_pushto_tool.c
     participant Catalog as catalog.c
     participant Astro as src/c/astro
     participant Screen as main_window.c
