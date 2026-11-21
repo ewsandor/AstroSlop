@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  deployments: write
 
 jobs:
   validate-ticket:
@@ -21,19 +22,14 @@ jobs:
           ASSIGNEES: ${{ toJSON(github.event.issue.assignees.*.login) }}
         run: |
           set -euo pipefail
-          jq -e 'index("ewsandor") != null' <<<"$ASSIGNEES" >/dev/null || {
-            echo "Ticket is not assigned to @ewsandor." >&2
-            exit 1
-          }
-          if [[ "$TITLE" =~ ^Publish\ PushTo\ Tool\ v([0-9]+\.[0-9]+\.[0-9]+([.+-][A-Za-z0-9.+-]+)?)$ ]]; then
+          if jq -e 'index("ewsandor") != null' <<<"$ASSIGNEES" >/dev/null &&
+             [[ "$TITLE" =~ ^Publish\ PushTo\ Tool\ v([0-9]+\.[0-9]+\.[0-9]+([.+-][A-Za-z0-9.+-]+)?)$ ]]; then
             echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
-          else
-            echo "Ticket title is not a PushTo Tool release ticket." >&2
-            exit 1
           fi
 
   deployment:
     needs: validate-ticket
+    if: needs.validate-ticket.outputs.version != ''
     runs-on: ubuntu-24.04
     name: Manual publication v${{ needs.validate-ticket.outputs.version }} (issue #${{ github.event.issue.number }}, closed by @${{ github.event.issue.closed_by.login }})
     environment:

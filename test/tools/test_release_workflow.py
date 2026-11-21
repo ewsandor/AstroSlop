@@ -53,7 +53,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("Pebble Appstore", MANUAL_WORKFLOW)
         self.assertIn("needs: validate-ticket", MANUAL_WORKFLOW)
         self.assertIn("url: ${{ github.event.issue.html_url }}", MANUAL_WORKFLOW)
-        self.assertNotIn("deployments: write", MANUAL_WORKFLOW)
+        self.assertIn("deployments: write", MANUAL_WORKFLOW)
         self.assertNotIn("APPSTORE_API_BASE", MANUAL_WORKFLOW)
 
     def test_not_planned_close_does_not_create_deployment(self):
@@ -79,9 +79,11 @@ class ReleaseWorkflowTests(unittest.TestCase):
                          "GITHUB_OUTPUT": str(output)},
                     capture_output=True, text=True,
                 )
-                self.assertEqual(process.returncode == 0, succeeds, process.stderr)
+                self.assertEqual(process.returncode == 0, True, process.stderr)
                 if succeeds:
                     self.assertEqual(output.read_text().strip(), "version=0.4.0")
+                else:
+                    self.assertFalse(output.exists())
 
     def test_release_version_matches_package_metadata(self):
         package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
