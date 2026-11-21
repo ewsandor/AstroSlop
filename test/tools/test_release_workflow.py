@@ -21,6 +21,13 @@ def job(name):
 
 
 class ReleaseWorkflowTests(unittest.TestCase):
+    def test_release_version_matches_package_metadata(self):
+        package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+        lockfile = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
+        self.assertEqual(package["version"], "0.3.2")
+        self.assertEqual(lockfile["version"], package["version"])
+        self.assertEqual(lockfile["packages"][""]["version"], package["version"])
+
     def test_appstore_oidc_and_identity_are_configured_consistently(self):
         plan = job("appstore-preflight")
         publish = job("publish")
