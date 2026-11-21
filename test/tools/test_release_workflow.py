@@ -21,6 +21,17 @@ def job(name):
 
 
 class ReleaseWorkflowTests(unittest.TestCase):
+    def test_appstore_oidc_and_identity_are_configured_consistently(self):
+        plan = job("plan")
+        publish = job("publish")
+        for text in (plan, publish):
+            self.assertIn("id-token: write", text)
+            self.assertIn("audience=https://appstore-api.repebble.com", text)
+            self.assertIn("Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN", text)
+        self.assertIn("Authorization: ******", plan)
+        self.assertIn("Authorization: ******", publish)
+        self.assertIn("https://appstore-api.repebble.com/api/v1/developer/me", plan)
+
     def test_release_precedes_tests_and_store_work_is_gated(self):
         release = job("release")
         self.assertIn("needs: [build]", release)
