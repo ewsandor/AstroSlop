@@ -17,11 +17,13 @@ all: test
 references: $(OUT)/test_core $(OUT)/test_horizons $(OUT)/pointing_reference $(EPHEMERIS)
 
 test: $(OUT)/test_core $(OUT)/test_ephemeris $(OUT)/test_horizons \
+      $(OUT)/test_accuracy_full $(OUT)/test_accuracy_low \
       $(OUT)/test_moon_truncation $(OUT)/test_log_release $(OUT)/test_log_debug \
       $(EPHEMERIS) $(FULL_EPHEMERIS)
 	$(OUT)/test_core
 	$(OUT)/test_ephemeris $(EPHEMERIS) $(FULL_EPHEMERIS)
 	$(OUT)/test_horizons $(EPHEMERIS)
+	python3 test_accuracy.py $(OUT)/test_accuracy_full $(OUT)/test_accuracy_low $(EPHEMERIS)
 	$(OUT)/test_moon_truncation $(EPHEMERIS) $(FULL_EPHEMERIS)
 	$(OUT)/test_log_release
 	$(OUT)/test_log_debug
@@ -37,6 +39,12 @@ $(OUT)/test_ephemeris: test_ephemeris.c $(SOURCE)/astro.c $(SOURCE)/events.c $(S
 
 $(OUT)/test_horizons: test_horizons.c $(SOURCE)/astro.c $(SOURCE)/ephemeris.c $(SOURCE)/astro.h $(SOURCE)/ephemeris.h | $(OUT)
 	$(CC) $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
+
+$(OUT)/test_accuracy_full: test_accuracy.c $(SOURCE)/astro.c $(SOURCE)/events.c $(SOURCE)/ephemeris.c $(SOURCE)/astro.h $(SOURCE)/events.h $(SOURCE)/ephemeris.h | $(OUT)
+	$(CC) $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@
+
+$(OUT)/test_accuracy_low: test_accuracy.c $(SOURCE)/astro.c $(SOURCE)/events.c $(SOURCE)/ephemeris.c $(SOURCE)/astro.h $(SOURCE)/events.h $(SOURCE)/ephemeris.h | $(OUT)
+	$(CC) $(CFLAGS) -DASTRO_LOW_MEMORY $(filter %.c,$^) $(LDLIBS) -o $@
 
 $(OUT)/test_moon_truncation: test_moon_truncation.c $(SOURCE)/astro.c $(SOURCE)/events.c $(SOURCE)/ephemeris.c $(SOURCE)/astro.h $(SOURCE)/events.h $(SOURCE)/ephemeris.h | $(OUT)
 	$(CC) $(CFLAGS) $(filter %.c,$^) $(LDLIBS) -o $@

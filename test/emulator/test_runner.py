@@ -74,6 +74,12 @@ class RunnerTests(unittest.TestCase):
             with self.subTest(values=values), self.assertRaises(AssertionError):
                 run.parse_angles(values, False)
 
+    def test_precise_display_support_tracks_platform_memory(self):
+        for platform in ("basalt", "chalk", "diorite", "flint"):
+            self.assertFalse(run.supports_precise_display(platform))
+        for platform in ("emery", "gabbro"):
+            self.assertTrue(run.supports_precise_display(platform))
+
     def test_rendering_rejects_blank_clipped_and_misaligned_rows(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "screen.png"
@@ -166,6 +172,53 @@ class RunnerTests(unittest.TestCase):
             image.resize((1080, 1080), Image.Resampling.NEAREST).save(path)
             with self.assertRaisesRegex(AssertionError, "round display edge"):
                 run.validate_image(path, "chalk", rows, False)
+
+    def test_precise_case_skipped_only_on_low_memory_platforms(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            pbw = output / "release.pbw"
+            with zipfile.ZipFile(pbw, "w") as archive:
+                archive.writestr("appinfo.json", json.dumps({"uuid": "test"}))
+            cases = [run.Case("precise", 0, 0, 2461041.5, 0, 0, 0, False,
+                              (0, 0), precise=True)]
+
+            class FakeEmulator:
+                def __init__(self, platform, pbw, output, appinfo):
+                    self.output = output
+                    self.log_path = output / "app.log"
+
+                def start(self):
+                    self.log_path.write_text("")
+                    (self.output / "commands.log").write_text("")
+
+                def check(self, case, objects, live_clock=True):
+                    (self.output / f"{case.name}.png").write_bytes(b"screen")
+                    return {"case": case.name}
+
+                def close(self):
+                    pass
+
+            args = argparse.Namespace(pbw=pbw, tier="sanity", mode="release",
+                                      case=["precise"], group=[])
+            platforms = ["basalt", "chalk", "diorite", "flint", "emery", "gabbro"]
+            with patch.object(run, "command"), patch.object(run, "catalogs"), \
+                 patch.object(run, "reference_cases", return_value=cases), \
+                 patch.object(run, "Emulator", FakeEmulator):
+                run.run_suite(args, {"pebble": {"uuid": "test"}}, platforms, output)
+            for platform in platforms:
+                with self.subTest(platform=platform):
+                    report = json.loads((output / f"sanity/release/{platform}/report.json").read_text())
+                    self.assertTrue(report["success"])
+                    self.assertEqual(report["selected"], ["precise"])
+                    self.assertEqual(report["total"], 1)
+                    if platform in run.LOW_MEMORY_PLATFORMS:
+                        self.assertEqual(report["cases"], [])
+                        self.assertEqual(report["passed"], 0)
+                        self.assertEqual(report["skipped"][0]["case"], "precise")
+                    else:
+                        self.assertEqual(report["cases"], [{"case": "precise"}])
+                        self.assertEqual(report["passed"], 1)
+                        self.assertEqual(report["skipped"], [])
 
     def test_app_errors_are_not_hidden_by_cli_log_format(self):
         self.assertIsNotNone(run.fatal_error(

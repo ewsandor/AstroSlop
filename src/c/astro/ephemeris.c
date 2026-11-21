@@ -175,23 +175,6 @@ static void ecliptic_fk5(Spherical *position, double jd_tt) {
   position->latitude += 0.03916 * (cos(lp) - sin(lp)) * ARCSEC;
 }
 
-static void ecliptic_aberration(Spherical *position, double jd_tt) {
-  // Meeus chapter 23, equation 23.2.
-  double t = (jd_tt - 2451545.0) / 36525.0;
-  double m = (357.52911 + 35999.05029 * t - 0.0001537 * t * t) * ASTRO_DEG;
-  double sun = (280.46646 + 36000.76983 * t + 0.0003032 * t * t +
-                (1.914602 - 0.004817 * t - 0.000014 * t * t) * sin(m) +
-                (0.019993 - 0.000101 * t) * sin(2 * m) + 0.000289 * sin(3 * m)) *
-               ASTRO_DEG;
-  double e = 0.016708634 - 0.000042037 * t - 0.0000001267 * t * t;
-  double peri = (102.93735 + 1.71946 * t + 0.00046 * t * t) * ASTRO_DEG;
-  double lambda = position->longitude, beta = position->latitude;
-  position->longitude += 20.49552 * ARCSEC *
-    (e * cos(peri - lambda) - cos(sun - lambda)) / cos(beta);
-  position->latitude -= 20.49552 * ARCSEC * sin(beta) *
-    (sin(sun - lambda) - e * sin(peri - lambda));
-}
-
 static AstroEquatorial apparent_ecliptic(Spherical sphere, double jd_tt) {
   double dpsi, deps, epsilon;
   astro_nutation(jd_tt, &dpsi, &deps, &epsilon);
@@ -429,7 +412,7 @@ bool astro_ephemeris_position(const AstroEphemeris *ephemeris, AstroBodyKind kin
   if (kind == ASTRO_SUN) {
     Spherical sun = {wrap(earth.longitude + ASTRO_PI), -earth.latitude, earth.radius};
     ecliptic_fk5(&sun, jd_tt);
-    sun.longitude -= 20.4898 * ARCSEC / earth.radius;
+    astro_apply_ecliptic_aberration(jd_tt, &sun.longitude, &sun.latitude, sun.radius, true);
     result->equatorial = apparent_ecliptic(sun, jd_tt);
     result->magnitude = -26.74 + 5 * log10(earth.radius);
     return true;
@@ -470,7 +453,8 @@ bool astro_ephemeris_position(const AstroEphemeris *ephemeris, AstroBodyKind kin
     }
     heliocentric_radius = planet.radius;
     Spherical apparent = vector_spherical(geocentric);
-    ecliptic_aberration(&apparent, jd_tt);
+    astro_apply_ecliptic_aberration(jd_tt, &apparent.longitude, &apparent.latitude,
+                                    apparent.radius, false);
     ecliptic_fk5(&apparent, jd_tt);
     result->equatorial = apparent_ecliptic(apparent, jd_tt);
     result->magnitude = planet_magnitude(index, heliocentric_radius, apparent.radius,
@@ -503,8 +487,7 @@ bool astro_ephemeris_position(const AstroEphemeris *ephemeris, AstroBodyKind kin
     Spherical astrometric = vector_spherical(geocentric);
     result->equatorial = ecliptic_equatorial(astrometric, 23.4392911111 * ASTRO_DEG);
     astro_precess_j2000(jd_tt, &result->equatorial);
-    astro_apply_annual_aberration(jd_tt, &result->equatorial);
-    astro_apply_nutation(jd_tt, &result->equatorial);
+    astro_apply_apparent_corrections(jd_tt, &result->equatorial);
     if (kind == ASTRO_MINOR) {
       result->magnitude = minor_magnitude(index, heliocentric_radius, astrometric.radius,
                                           phase_angle(heliocentric_radius, astrometric.radius,

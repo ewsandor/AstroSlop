@@ -377,6 +377,8 @@ containers, use the temporary `PYTHONPATH` workaround in [AGENTS.md](AGENTS.md).
 
 **Sanity** covers Sun, Moon, planets, a minor planet, a star and a DSO, both
 hemispheres, button navigation, normal/precise coordinate fonts and both themes.
+The precise-coordinate case is reported as skipped on 64 KB platforms, which
+always display 0.1°; it remains active on Emery and Gabbro.
 It also tests banner navigation and dismissal, held-button repeat and release,
 flashlight toggle, location refresh, and weather temperature/refraction.
 Comprehensive adds clock/event/magnitude and label settings, location-error

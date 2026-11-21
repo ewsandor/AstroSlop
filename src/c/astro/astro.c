@@ -57,6 +57,14 @@ double astro_gmst(double jd_utc) {
                t * t * (0.000387933 - t / 38710000.0)) * ASTRO_DEG);
 }
 
+double astro_mean_obliquity(double jd_tt) {
+  double t = (jd_tt - 2451545.0) / 36525.0;
+  return (23.0 + 26.0 / 60.0 + 21.448 / 3600.0) * ASTRO_DEG -
+         (46.8150 * t + 0.00059 * t * t -
+          0.001813 * t * t * t) * ARCSEC;
+}
+
+#if !defined(ASTRO_LOW_MEMORY)
 void astro_nutation(double jd_tt, double *longitude, double *obliquity,
                     double *mean_obliquity) {
   // Meeus chapter 22, four-term approximation.
@@ -69,10 +77,9 @@ void astro_nutation(double jd_tt, double *longitude, double *obliquity,
                 0.23 * sin(2 * moon) + 0.21 * sin(2 * omega)) * ARCSEC;
   *obliquity = (9.20 * cos(omega) + 0.57 * cos(2 * sun) +
                 0.10 * cos(2 * moon) - 0.09 * cos(2 * omega)) * ARCSEC;
-  *mean_obliquity = (23.0 + 26.0 / 60.0 + 21.448 / 3600.0) * ASTRO_DEG -
-                    (46.8150 * t + 0.00059 * t * t -
-                     0.001813 * t * t * t) * ARCSEC;
+  *mean_obliquity = astro_mean_obliquity(jd_tt);
 }
+#endif
 
 double astro_local_sidereal(double jd_utc, double longitude_deg) {
   double dpsi, deps, epsilon;
@@ -104,7 +111,8 @@ void astro_precess_j2000(double jd_tt, AstroEquatorial *position) {
   astro_precess(2451545.0, jd_tt, position);
 }
 
-void astro_apply_nutation(double jd_tt, AstroEquatorial *position) {
+#if !defined(ASTRO_LOW_MEMORY)
+static void apply_nutation(double jd_tt, AstroEquatorial *position) {
   double dpsi, deps, epsilon;
   astro_nutation(jd_tt, &dpsi, &deps, &epsilon);
   double x = cos(position->dec) * cos(position->ra);
@@ -119,7 +127,7 @@ void astro_apply_nutation(double jd_tt, AstroEquatorial *position) {
               sin(true_epsilon) * rotated_y + cos(true_epsilon) * ecliptic_z, position);
 }
 
-void astro_apply_annual_aberration(double jd_tt, AstroEquatorial *position) {
+static void apply_annual_aberration(double jd_tt, AstroEquatorial *position) {
   // Meeus chapter 23, equation 23.3, applied in the tangent plane.
   double t = (jd_tt - 2451545.0) / 36525.0;
   double mean_longitude = (280.46646 + 36000.76983 * t + 0.0003032 * t * t) * ASTRO_DEG;
@@ -146,6 +154,34 @@ void astro_apply_annual_aberration(double jd_tt, AstroEquatorial *position) {
               sd + ddec * cd, position);
 }
 
+void astro_apply_apparent_corrections(double jd_tt, AstroEquatorial *position) {
+  apply_annual_aberration(jd_tt, position);
+  apply_nutation(jd_tt, position);
+}
+
+void astro_apply_ecliptic_aberration(double jd_tt, double *longitude, double *latitude,
+                                     double distance_au, bool sun) {
+  if (sun) {
+    *longitude -= 20.4898 * ARCSEC / distance_au;
+    return;
+  }
+  // Meeus chapter 23, equation 23.2.
+  double t = (jd_tt - 2451545.0) / 36525.0;
+  double m = (357.52911 + 35999.05029 * t - 0.0001537 * t * t) * ASTRO_DEG;
+  double sun_longitude = (280.46646 + 36000.76983 * t + 0.0003032 * t * t +
+                          (1.914602 - 0.004817 * t - 0.000014 * t * t) * sin(m) +
+                          (0.019993 - 0.000101 * t) * sin(2 * m) +
+                          0.000289 * sin(3 * m)) * ASTRO_DEG;
+  double e = 0.016708634 - 0.000042037 * t - 0.0000001267 * t * t;
+  double peri = (102.93735 + 1.71946 * t + 0.00046 * t * t) * ASTRO_DEG;
+  double lambda = *longitude, beta = *latitude;
+  *longitude += 20.49552 * ARCSEC *
+    (e * cos(peri - lambda) - cos(sun_longitude - lambda)) / cos(beta);
+  *latitude -= 20.49552 * ARCSEC * sin(beta) *
+    (sin(sun_longitude - lambda) - e * sin(peri - lambda));
+}
+#endif
+
 bool astro_fixed_apparent(double jd_tt, double ra_deg, double dec_deg,
                           double pm_ra_mas, double pm_dec_mas,
                           AstroEquatorial *position) {
@@ -164,8 +200,7 @@ bool astro_fixed_apparent(double jd_tt, double ra_deg, double dec_deg,
               sd + dd * cd, position);
   position->distance_au = 0;
   astro_precess_j2000(jd_tt, position);
-  astro_apply_annual_aberration(jd_tt, position);
-  astro_apply_nutation(jd_tt, position);
+  astro_apply_apparent_corrections(jd_tt, position);
   return true;
 }
 
