@@ -102,7 +102,7 @@ module.exports = function(page) {
        '<p>Icons: Pebble iconography, Apache-2.0.</p><ul>' + credits + '</ul>' +
        '<p>Catalog data are for personal and scientific use only; review each ' +
        'source\'s terms.</p>' +
-       '<p>Source and complete credits: https://github.com/ewsandor/AstroSlop</p>'}
+       '<p>Source and complete credits: https://github.com/ewsandor/Pebble-PushTo-Tool</p>'}
     ]},
     {type: 'submit', defaultValue: 'Save'}
   ]);

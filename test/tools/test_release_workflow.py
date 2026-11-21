@@ -53,6 +53,18 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertEqual(pebble["displayName"], "PushTo Tool")
         self.assertRegex(pebble["uuid"], r"(?i)^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
 
+    def test_versioned_pbw_artifact_uses_current_name_end_to_end(self):
+        self.assertIn(
+            'cp build/*.pbw "dist/Pebble-PushTo-Tool-${{ steps.meta.outputs.version }}.pbw"',
+            job("build"))
+        self.assertIn(
+            '--pbw "dist/Pebble-PushTo-Tool-${{ needs.build.outputs.version }}.pbw"',
+            job("store-screenshots"))
+        self.assertIn(
+            '-F "pbwFile=@dist/Pebble-PushTo-Tool-$VERSION.pbw"',
+            job("publish"))
+        self.assertNotIn("astroslop", WORKFLOW)
+
     def test_release_precedes_tests_and_store_work_is_gated(self):
         release = job("release")
         self.assertIn("needs: [build]", release)
@@ -117,7 +129,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
                 root = Path(directory)
                 shutil.copy(ROOT / "package.json", root / "package.json")
                 (root / "dist").mkdir()
-                (root / "dist" / "astroslop-0.3.2.pbw").write_bytes(b"pbw")
+                (root / "dist" / "Pebble-PushTo-Tool-0.3.2.pbw").write_bytes(b"pbw")
                 curl = root / "curl"
                 curl.write_text(textwrap.dedent("""\
                     #!/bin/bash

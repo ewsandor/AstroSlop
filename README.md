@@ -127,8 +127,8 @@ flavor, use:
 pebble build -- --mode=debug
 ```
 
-Both flavors write `build/AstroSlop.pbw`. The debug flavor has a separate app
-UUID and display name, so it can be installed alongside the store version.
+Both flavors write `build/Pebble-PushTo-Tool.pbw`. The debug flavor has a
+separate app UUID and display name, so it can be installed alongside the store version.
 Rebuild the release flavor before publishing; CI uploads only that package.
 
 For a release, update the version in the manifest and lockfile together, without
@@ -152,7 +152,7 @@ admin):
    source **GitHub Actions**. Leave the per-platform `sanity-emulator` entries
    unrequired; `sanity` already covers them.
 3. Save. Confirm with
-   `curl -s https://api.github.com/repos/ewsandor/AstroSlop/rules/branches/main`,
+   `curl -s https://api.github.com/repos/ewsandor/Pebble-PushTo-Tool/rules/branches/main`,
    which should list a `required_status_checks` rule containing `sanity`.
 
 Push a matching `vX.Y.Z` tag to release. Once the build succeeds, the workflow
@@ -198,7 +198,7 @@ To reproduce a platform locally, build the release PBW and run:
 ```sh
 pebble emu-set-location --emulator emery --vnc 51.4779 0
 python3 test/emulator/store_screenshots.py --platform emery \
-  --pbw build/astroslop.pbw --output build/store-screenshots
+  --pbw build/Pebble-PushTo-Tool.pbw --output build/store-screenshots
 ```
 
 The script uses the managed VNC emulator and its persistent flash; avoid running
@@ -207,7 +207,7 @@ directory. The Python dependencies are the same as the emulator test suite.
 
 ### Icon assets
 
-The Dobsonian icon assets for [branding issue #11](https://github.com/ewsandor/AstroSlop/issues/11)
+The Dobsonian icon assets for [branding issue #11](https://github.com/ewsandor/Pebble-PushTo-Tool/issues/11)
 are in `assets/icons/`: color and transparent black-and-white PNGs, plus SVG and
 PDC sources, in 25x25, 50x50 and 80x80 sizes. The menu icon
 (`resources/icons/app_icon.png`) uses the transparent 25x25 black-and-white PNG.
@@ -239,7 +239,7 @@ and install the package:
 
 ```sh
 pebble login  # needed once
-pebble install --cloudpebble build/astroslop.pbw
+pebble install --cloudpebble build/Pebble-PushTo-Tool.pbw
 ```
 
 Allow the app access to your phone's location when prompted.
@@ -297,7 +297,7 @@ python3 test/emulator/run.py --tier comprehensive --mode debug --platform flint
 
 # Reuse a built release PBW, as CI does (no rebuild)
 python3 test/emulator/run.py --tier sanity --mode release \
-  --platform chalk --pbw build/astroslop.pbw --output build/emulator-tests
+  --platform chalk --pbw build/Pebble-PushTo-Tool.pbw --output build/emulator-tests
 
 # Focused runner checks (after building the host reference exporters)
 make -C test/astro references
@@ -323,7 +323,7 @@ python3 test/emulator/parallel.py --tier sanity --jobs 3
 
 # Focused release check, reusing an existing PBW
 python3 test/emulator/parallel.py --tier comprehensive --mode release \
-  --platform chalk --platform emery --pbw build/astroslop.pbw \
+  --platform chalk --platform emery --pbw build/Pebble-PushTo-Tool.pbw \
   --group navigation --jobs 2
 ```
 

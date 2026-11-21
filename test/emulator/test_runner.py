@@ -168,7 +168,8 @@ class RunnerTests(unittest.TestCase):
                 run.validate_image(path, "chalk", rows, False)
 
     def test_app_errors_are_not_hidden_by_cli_log_format(self):
-        self.assertIsNotNone(run.fatal_error("[12:00:00] astroslop.c:100> ASTRO_ERROR failure"))
+        self.assertIsNotNone(run.fatal_error(
+            "[12:00:00] pebble_pushto_tool.c:100> ASTRO_ERROR failure"))
         self.assertIsNotNone(run.fatal_error("App crash detected"))
         self.assertIsNone(run.fatal_error("TEST_SCREEN 1 0 0 0 Sun|179.2|15.6"))
         self.assertIsNone(run.fatal_error("[12:00:00] location.c:170> Phone location error: 2"))

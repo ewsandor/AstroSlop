@@ -49,7 +49,7 @@ jobs:
       - name: Prepare artifact
         run: |
           mkdir -p dist
-          cp build/*.pbw "dist/astroslop-${{ steps.meta.outputs.version }}.pbw"
+          cp build/*.pbw "dist/Pebble-PushTo-Tool-${{ steps.meta.outputs.version }}.pbw"
 
       - name: Build debug mode (not published)
         run: pebble build -- --mode=debug
@@ -322,7 +322,7 @@ jobs:
       - name: Capture store listing candidates
         run: |
           python3 test/emulator/store_screenshots.py --platform "${{ matrix.platform }}" \
-            --pbw "dist/astroslop-${{ needs.build.outputs.version }}.pbw" --output store-screenshots
+            --pbw "dist/Pebble-PushTo-Tool-${{ needs.build.outputs.version }}.pbw" --output store-screenshots
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         with:
@@ -386,7 +386,7 @@ jobs:
           echo "stage=upload" >> "$GITHUB_OUTPUT"
           curl -fsS -H "Authorization: Bearer ""$TOKEN" \
             --form-string "version=$VERSION" \
-            -F "pbwFile=@dist/astroslop-$VERSION.pbw" \
+            -F "pbwFile=@dist/Pebble-PushTo-Tool-$VERSION.pbw" \
             --form-string isPublished=true \
             "$APPSTORE_API_BASE/api/dashboard/apps/$APP_ID/releases"
       - name: Warn about manual publishing
