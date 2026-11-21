@@ -174,12 +174,10 @@ screenshots. These are Actions artifacts, not attachments to the issue or releas
 and expire under GitHub's artifact retention policy. No issue is created when
 build, test, or screenshot gates fail or when publishing is skipped or succeeds.
 
-Closing the exact **“Publish PushTo Tool vX.Y.Z”** issue by @ewsandor records a
-**Pebble Appstore** deployment in GitHub. The close workflow verifies that the
-matching tag/package version appears in the Pebble App Store: it records a
-successful deployment when confirmed and a failed deployment with the ticket
-otherwise. The deployment description identifies the issue number and closing
-actor, and the issue receives a traceable completion comment.
+Closing the exact **“Publish PushTo Tool vX.Y.Z”** issue as **Done** by
+@ewsandor records a successful **Pebble Appstore** deployment in GitHub. The
+deployment links back to the ticket, preserving the release version and closing
+actor for traceability. Closing as **Not Planned** does not create a deployment.
 
 Set the listing's **App Name** to **PushTo Tool** in the
 [Pebble Developer Dashboard](https://developer.repebble.com/dashboard).

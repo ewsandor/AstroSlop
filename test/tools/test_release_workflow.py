@@ -32,16 +32,56 @@ def shell_step(name, step):
     return textwrap.dedent(match.group(1))
 
 
+def manual_shell_step(step):
+    match = re.search(
+        rf"(?ms)^      - name: {re.escape(step)}\n.*?^        run: \|\n"
+        rf"(.*?)(?=^      - name:|^  [\w-]+:|\Z)", MANUAL_WORKFLOW
+    )
+    if not match:
+        raise AssertionError(f"Missing manual workflow shell step: {step}")
+    return textwrap.dedent(match.group(1))
+
+
 class ReleaseWorkflowTests(unittest.TestCase):
-    def test_manual_ticket_close_records_deployment(self):
+    def test_manual_ticket_done_records_successful_deployment(self):
         self.assertIn("types: [closed]", MANUAL_WORKFLOW)
-        self.assertIn("github.event.issue.closed_by.login == 'ewsandor'", MANUAL_WORKFLOW)
+        validate = re.search(r"(?m)^  validate-ticket:\n(.*?)(?=^  deployment:)", MANUAL_WORKFLOW, re.S).group(1)
+        self.assertIn("github.event.issue.state_reason == 'completed'", validate)
+        self.assertIn("github.event.issue.closed_by.login == 'ewsandor'", validate)
         self.assertIn("Publish\\ PushTo\\ Tool\\ v", MANUAL_WORKFLOW)
         self.assertIn('index("ewsandor") != null', MANUAL_WORKFLOW)
         self.assertIn("Pebble Appstore", MANUAL_WORKFLOW)
-        self.assertIn("deployments/$deployment_id/statuses", MANUAL_WORKFLOW)
-        self.assertIn("manual-publish-verification.json", MANUAL_WORKFLOW)
-        self.assertIn("GitHub deployment", MANUAL_WORKFLOW)
+        self.assertIn("needs: validate-ticket", MANUAL_WORKFLOW)
+        self.assertIn("url: ${{ github.event.issue.html_url }}", MANUAL_WORKFLOW)
+        self.assertNotIn("deployments: write", MANUAL_WORKFLOW)
+        self.assertNotIn("APPSTORE_API_BASE", MANUAL_WORKFLOW)
+
+    def test_not_planned_close_does_not_create_deployment(self):
+        condition = re.search(r"(?m)^    if: (.+)$", MANUAL_WORKFLOW).group(1)
+        for reason, expected in (("completed", True), ("not_planned", False)):
+            expression = condition.replace(
+                "github.event.issue.state_reason", repr(reason)
+            ).replace("github.event.issue.closed_by.login", repr("ewsandor")).replace("&&", "and")
+            with self.subTest(reason=reason):
+                self.assertEqual(eval(expression, {"__builtins__": {}}), expected)
+
+    def test_manual_ticket_validation_requires_exact_assigned_release_ticket(self):
+        script = manual_shell_step("Validate manual publishing ticket")
+        for title, assignees, succeeds in (
+                ("Publish PushTo Tool v0.4.0", '["ewsandor"]', True),
+                ("Publish PushTo Tool v0.4.0", '[]', False),
+                ("Other Publish PushTo Tool v0.4.0", '["ewsandor"]', False)):
+            with self.subTest(title=title, assignees=assignees), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "output"
+                process = subprocess.run(
+                    ["bash", "-c", script],
+                    env={**os.environ, "TITLE": title, "ASSIGNEES": assignees,
+                         "GITHUB_OUTPUT": str(output)},
+                    capture_output=True, text=True,
+                )
+                self.assertEqual(process.returncode == 0, succeeds, process.stderr)
+                if succeeds:
+                    self.assertEqual(output.read_text().strip(), "version=0.4.0")
 
     def test_release_version_matches_package_metadata(self):
         package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
