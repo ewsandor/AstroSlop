@@ -171,6 +171,9 @@ If the version is new, it publishes that same tested package after any protectio
 rules on the `Pebble Appstore` environment pass.
 Create the listing in the Pebble Developer Dashboard first, authorize
 the version-tag runs of `.github/workflows/build.yml` for GitHub Actions publishing.
+For GitHub Actions trusted publishing, authorize repository `ewsandor/AstroSlop`,
+workflow `.github/workflows/build.yml`, and tag refs matching `v*`; the
+`Pebble Appstore` environment may require approval before the publish job.
 The workflow finds the listing ID by the release app UUID. Configure the
 environment to allow `v*` tags and require a reviewer if approval is
 wanted. Without a reviewer, a new version can be published automatically.
