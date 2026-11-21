@@ -160,38 +160,35 @@ creates a GitHub Release with generated notes and the release PBW, without
 waiting for tests. The release is therefore available before it has passed the
 release gate. The comprehensive suite then tests that exact PBW on every
 supported platform. Only after the host and comprehensive checks pass does
-`store-screenshots` capture native-resolution PNGs
-from the same release PBW on every platform. Download the
-`store-screenshots-<platform>` workflow artifacts to review or update the
-listing manually; the workflow does not modify the listing images. Publishing
-and Appstore planning also wait for the test gate, and publishing waits for all
-screenshot jobs to succeed. They never run on ordinary pushes to `main` or
-failed test gates. GitHub artifact retention applies.
-If the version is new, it publishes that same tested package after any protection
-rules on the `Pebble Appstore` environment pass.
-Create the listing in the Pebble Developer Dashboard first, authorize
-the version-tag runs of `.github/workflows/build.yml` for GitHub Actions publishing.
-The workflow finds the listing ID by the release app UUID. Configure the
-environment to allow `v*` tags and require a reviewer if approval is
-wanted. Without a reviewer, a new version can be published automatically.
+`store-screenshots` capture native-resolution PNGs from the same release PBW
+on every platform. The workflow then attempts to publish the tested PBW to the
+Pebble App Store, unless that version already exists. Configure the GitHub
+`Pebble Appstore` environment to allow version tags, set its `APPSTORE_APP_ID`
+variable to the existing listing ID, and authorize the repository and workflow
+for App Store GitHub Actions publishing. Environment approval rules apply.
+
+If authentication or upload fails, the workflow reports a warning and creates
+or updates one issue per version, assigned to @ewsandor for manual publication.
+The issue links to the workflow run, release PBW, comprehensive reports and
+screenshots. These are Actions artifacts, not attachments to the issue or release,
+and expire under GitHub's artifact retention policy. No issue is created when
+build, test, or screenshot gates fail or when publishing is skipped or succeeds.
+
+Closing the exact **“Publish PushTo Tool vX.Y.Z”** issue as **Done** by
+@ewsandor records a successful **Pebble Appstore** deployment in GitHub. The
+deployment links back to the ticket, preserving the release version and closing
+actor for traceability. Closing as **Not Planned** does not create a deployment.
 
 Set the listing's **App Name** to **PushTo Tool** in the
 [Pebble Developer Dashboard](https://developer.repebble.com/dashboard).
-The release upload does not rename the listing. Store installs use the listing
-name in the watch launcher; sideloads use `pebble.displayName` in `package.json`.
-Keep both set to **PushTo Tool**.
-
-Versions already returned by the appstore's developer API are not uploaded again.
-For a transient failure, GitHub's **Re-run failed jobs** can reuse successful
-jobs and their artifacts from the same run. Inspect failure evidence first;
-in particular, Diorite installation has intermittently reset locally. A tag
-run can create a real release and publish it, including on a rerun.
+Store installs use the listing name in the watch launcher; sideloads use
+`pebble.displayName` in `package.json`. Keep both set to **PushTo Tool**.
 
 ### Release screenshots
 
 After a successful tag run, open it under **Actions**, scroll to **Artifacts**,
-and download each `store-screenshots-<platform>` ZIP. Extract the PNGs and
-upload the desired images to the store listing manually.
+and download the `store-screenshots-<platform>` ZIPs. Screenshots are not
+uploaded to the App Store automatically.
 
 The captures use 2026-01-01 12:00 AM UTC, 51.4779° N / 0° E, 45 m and
 51°F weather. Each model gets Jupiter on the main screen, Sirius on the banner,
@@ -377,6 +374,8 @@ containers, use the temporary `PYTHONPATH` workaround in [AGENTS.md](AGENTS.md).
 
 **Sanity** covers Sun, Moon, planets, a minor planet, a star and a DSO, both
 hemispheres, button navigation, normal/precise coordinate fonts and both themes.
+The precise-coordinate case is reported as skipped on 64 KB platforms, which
+always display 0.1°; it remains active on Emery and Gabbro.
 It also tests banner navigation and dismissal, held-button repeat and release,
 flashlight toggle, location refresh, and weather temperature/refraction.
 Comprehensive adds clock/event/magnitude and label settings, location-error

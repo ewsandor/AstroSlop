@@ -1,0 +1,48 @@
+name: Record Manual Pebble Publication
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  validate-ticket:
+    if: github.event.issue.state_reason == 'completed' && github.event.issue.closed_by.login == 'ewsandor'
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.ticket.outputs.version }}
+    steps:
+      - name: Validate manual publishing ticket
+        id: ticket
+        env:
+          TITLE: ${{ github.event.issue.title }}
+          ASSIGNEES: ${{ toJSON(github.event.issue.assignees.*.login) }}
+        run: |
+          set -euo pipefail
+          if jq -e 'index("ewsandor") != null' <<<"$ASSIGNEES" >/dev/null &&
+             [[ "$TITLE" =~ ^Publish\ PushTo\ Tool\ v([0-9]+\.[0-9]+\.[0-9]+([.+-][A-Za-z0-9.+-]+)?)$ ]]; then
+            echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          fi
+
+  deployment:
+    needs: validate-ticket
+    if: needs.validate-ticket.outputs.version != ''
+    runs-on: ubuntu-24.04
+    name: Manual publication v${{ needs.validate-ticket.outputs.version }} (issue #${{ github.event.issue.number }}, closed by @${{ github.event.issue.closed_by.login }})
+    environment:
+      name: Pebble Appstore
+      url: ${{ github.event.issue.html_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/v${{ needs.validate-ticket.outputs.version }}
+          persist-credentials: false
+      - name: Verify release version
+        env:
+          VERSION: ${{ needs.validate-ticket.outputs.version }}
+        run: |
+          set -euo pipefail
+          test "$(jq -er '.version' package.json)" = "$VERSION"

@@ -115,6 +115,17 @@ async function main() {
   assert.match(configText, /personal and scientific use only/);
   assert.match(configText, /bending of light by the atmosphere/);
   assert.match(configText, /larger numbers are dimmer/);
+  assert.match(configText, /Coordinate precision/);
+
+  const buildConfig = require('../../src/pkjs/config.js');
+  for (const platform of ['basalt', 'chalk', 'diorite', 'flint']) {
+    const lowMemoryConfig = JSON.stringify(buildConfig({platform, catalogCredits: []}));
+    assert.doesNotMatch(lowMemoryConfig, /CFG_PRECISION/);
+  }
+  for (const platform of ['emery', 'gabbro']) {
+    assert.match(JSON.stringify(buildConfig({platform, catalogCredits: []})),
+                 /CFG_PRECISION/);
+  }
 
   let count = sent.length;
   await page({CFG_MIN_ELEV: 61, CFG_LABEL_MODE: '1', CFG_SHOW_TIME: true, LATITUDE: ''});

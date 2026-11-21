@@ -351,7 +351,11 @@ function showSettings() {
     Object.keys(settings).forEach(function(name) {
       if (pageKey(name)) stored[pageKey(name)] = toPage(name);
     });
-    clay.config = buildConfig({notice: permissionNotice(state), catalogCredits: catalogCredits});
+    clay.config = buildConfig({
+      notice: permissionNotice(state),
+      catalogCredits: catalogCredits,
+      platform: platform
+    });
     clay.meta.userData = {lastFix: lastFix};
     clay.setSettings(stored);
     Pebble.openURL(clay.generateUrl());
