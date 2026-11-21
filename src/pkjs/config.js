@@ -23,6 +23,30 @@ module.exports = function(page) {
     return '<li>' + escapeHtml(credit.title + ': ' + credit.source + ' (' + credit.license + ')') +
       '</li>';
   }).join('');
+  var lowMemoryPlatforms = ['basalt', 'chalk', 'diorite', 'flint'];
+  var displayItems = [
+    {type: 'heading', defaultValue: 'Display'},
+    {type: 'select', messageKey: 'CFG_LABEL_MODE', label: 'Object label',
+     options: options([[0, 'ID'], [1, 'Name'], [2, 'ID + name']])},
+    toggle('CFG_SHOW_TIME', 'Show local time'),
+    toggle('CFG_SHOW_EVENT', 'Show next rise or set'),
+    toggle('CFG_SHOW_MAG', 'Show magnitude'),
+    toggle('CFG_USE_WEATHER', 'Use local weather',
+           'Uses temperature from the first location in the Pebble weather plugin for the ' +
+           'status bar and refraction correction. Requires plugins to be enabled.')
+  ];
+  if (lowMemoryPlatforms.indexOf(page.platform) === -1) {
+    displayItems.push({
+      type: 'select', messageKey: 'CFG_PRECISION', label: 'Coordinate precision',
+      description: 'Changes displayed rounding only; it does not improve calculation accuracy.',
+      options: options([[0, '0.1 degrees'], [1, '0.01 degrees']])
+    });
+  }
+  displayItems.push(
+    toggle('CFG_BANNER', 'Show object banner',
+           'Briefly shows the object name or ID when you switch objects.'),
+    toggle('CFG_INVERT', 'Invert colors')
+  );
   var config = [{type: 'heading', defaultValue: appName}];
   if (page.notice) config.push({type: 'text', defaultValue: page.notice});
   return config.concat([
@@ -39,24 +63,7 @@ module.exports = function(page) {
        description: 'Objects dimmer than this limit are skipped when browsing.',
        min: -2, max: 15, step: 1}
     ]},
-    {type: 'section', items: [
-      {type: 'heading', defaultValue: 'Display'},
-      {type: 'select', messageKey: 'CFG_LABEL_MODE', label: 'Object label',
-       options: options([[0, 'ID'], [1, 'Name'], [2, 'ID + name']])},
-      toggle('CFG_SHOW_TIME', 'Show local time'),
-      toggle('CFG_SHOW_EVENT', 'Show next rise or set'),
-      toggle('CFG_SHOW_MAG', 'Show magnitude'),
-      toggle('CFG_USE_WEATHER', 'Use local weather',
-             'Uses temperature from the first location in the Pebble weather plugin for the ' +
-             'status bar and refraction correction. Requires plugins to be enabled.'),
-      {type: 'select', messageKey: 'CFG_PRECISION', label: 'Coordinate precision',
-       description: 'Changes displayed rounding only; it does not improve calculation accuracy. ' +
-         '64 KB watches display 0.1-degree precision.',
-       options: options([[0, '0.1 degrees'], [1, '0.01 degrees']])},
-      toggle('CFG_BANNER', 'Show object banner',
-             'Briefly shows the object name or ID when you switch objects.'),
-      toggle('CFG_INVERT', 'Invert colors')
-    ]},
+    {type: 'section', items: displayItems},
     {type: 'section', items: [
       {type: 'heading', defaultValue: 'Backlight'},
       {type: 'toggle', messageKey: 'CFG_TINT', label: 'Red backlight',
