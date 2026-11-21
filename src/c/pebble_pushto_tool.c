@@ -1070,7 +1070,7 @@ static void init(void) {
   schedule_event();
   if (filter_notice_saved && !s_filter_notice_acknowledged) show_filter_notice();
   else update_display();
-  ASTRO_LOG(APP_LOG_LEVEL_INFO, "AstroSlop started; free heap: %lu bytes",
+  ASTRO_LOG(APP_LOG_LEVEL_INFO, "Pebble PushTo Tool started; free heap: %lu bytes",
           (unsigned long)heap_bytes_free());
 }
 

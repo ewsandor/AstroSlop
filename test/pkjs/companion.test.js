@@ -10,7 +10,10 @@ async function main() {
   const sent = [];
   const gps = [];
   const subscriptions = [];
-  const storage = {};
+  const storage = {
+    'astroslop.settings.v1': JSON.stringify({useWeather: 1}),
+    'astroslop.lastGpsFix.v1': JSON.stringify({latitude: 51.5, longitude: -0.1, elevation: 0})
+  };
   let permission = 'granted';
   const opened = [];
   let clay;
@@ -62,6 +65,9 @@ async function main() {
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../src/pkjs/index.js'), 'utf8'),
                      context);
   listeners.ready({});
+  assert.equal(JSON.parse(storage['pebble-pushto-tool.settings.v1']).useWeather, 1);
+  assert.deepEqual(JSON.parse(storage['pebble-pushto-tool.lastGpsFix.v1']),
+                   {latitude: 51.5, longitude: -0.1, elevation: 0});
   assert.equal(sent[0].JS_READY, 1);
   assert.equal(sent[1].CFG_USE_WEATHER, 1);
   assert.equal(sent[1].CFG_REFRACTION, 1);
@@ -155,7 +161,7 @@ async function main() {
   listeners.appmessage({payload: {REQ_LOCATION: 1}});
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(subscriptions.length, weatherSubs);
-  assert.equal(JSON.parse(storage['astroslop.settings.v1']).useWeather, 1);
+  assert.equal(JSON.parse(storage['pebble-pushto-tool.settings.v1']).useWeather, 1);
   listeners.ready({});
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(sent.at(-1).WX_CLEAR, 1);

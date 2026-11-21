@@ -5,8 +5,10 @@ var Clay = require('@rebble/clay');
 var buildConfig = require('./config');
 var catalogCredits = require('../../resources/generated/catalog_credits.json');
 
-var SETTINGS_KEY = 'astroslop.settings.v1';
-var LAST_FIX_KEY = 'astroslop.lastGpsFix.v1';
+var SETTINGS_KEY = 'pebble-pushto-tool.settings.v1';
+var LAST_FIX_KEY = 'pebble-pushto-tool.lastGpsFix.v1';
+var LEGACY_SETTINGS_KEY = 'astroslop.settings.v1';
+var LEGACY_LAST_FIX_KEY = 'astroslop.lastGpsFix.v1';
 var WATCH_KEYS = {
   labelMode: 'CFG_LABEL_MODE', showTime: 'CFG_SHOW_TIME',
   showEvent: 'CFG_SHOW_EVENT', showMagnitude: 'CFG_SHOW_MAG',
@@ -72,9 +74,17 @@ function readStorage(key) {
   }
 }
 
+function readMigratedStorage(key, legacyKey) {
+  var value = readStorage(key);
+  if (value !== null) return value;
+  value = readStorage(legacyKey);
+  if (value !== null) localStorage.setItem(key, JSON.stringify(value));
+  return value;
+}
+
 function loadSettings() {
   var result = defaults();
-  var stored = readStorage(SETTINGS_KEY);
+  var stored = readMigratedStorage(SETTINGS_KEY, LEGACY_SETTINGS_KEY);
   if (stored && typeof stored === 'object') {
     Object.keys(result).forEach(function(name) {
       if (Object.prototype.hasOwnProperty.call(stored, name)) {
@@ -393,11 +403,11 @@ Pebble.addEventListener('ready', function() {
   var watch = Pebble.getActiveWatchInfo();
   platform = watch && watch.platform ? watch.platform : '';
   settings = loadSettings();
-  lastFix = readStorage(LAST_FIX_KEY);
+  lastFix = readMigratedStorage(LAST_FIX_KEY, LEGACY_LAST_FIX_KEY);
   send({JS_READY: 1}, true);
   sendSettings();
   if (settings.useWeather) subscribeWeather();
-  console.log('AstroSlop phone companion ready');
+  console.log('Pebble PushTo Tool phone companion ready');
 });
 
 Pebble.addEventListener('appmessage', function(event) {
